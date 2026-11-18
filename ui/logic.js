@@ -287,8 +287,38 @@
       emitState();
     }
 
+    // You: the player's own entity (from the meter), for the effects the boss puts on you.
+    let meId = 0;
+    function setMe(id) {
+      meId = Number(id) || 0;
+    }
+    // A Ludra boss's effect on you: called when data.js knows it (`onMe`),
+    // else logged once a fight, so the logs show which effect is which mechanic.
+    function onMe(abnormal, at) {
+      if (!boss || !boss.key) return;
+      const b = bosses[boss.key];
+      if (!inRanges(abnormal, b.skills) && !(b.buffs || []).includes(abnormal)) return;
+      const k = `me:${abnormal}`;
+      const last = boss.seen[k] || 0;
+      if (at - last < 4000) return;
+      boss.seen[k] = at;
+      const c = (b.onMe || []).find((x) => x.abnormal === abnormal);
+      if (!c) {
+        if (!boss.seen[`u${k}`]) {
+          boss.seen[`u${k}`] = 1;
+          logIt({ abnormal, title: `efeito ${abnormal} em você` }, at);
+        }
+        return;
+      }
+      logIt({ abnormal, title: `${c.title} (você)` }, at);
+      if (prefs.castCalls && !prefs.off[`${boss.key}:me:${abnormal}`] && now() - at <= STALE_MS) {
+        hooks.call({ kind: "me", text: c.title, sub: c.sub, say: `${c.title}. ${c.sub}` });
+      }
+    }
+
     function buff(d, at) {
       const abnormal = Number(d && d.abnormal);
+      if (meId && Number(d && d.entity) === meId) return onMe(abnormal, at);
       const key = bossOfBuff(abnormal);
       if (!key) return;
       // Only on the boss being fought: the same id on anyone else is dropped.
@@ -440,7 +470,7 @@
       emitState();
     }
 
-    return { hp, spawn, cast, buff, tick, enrageSecs, setPrefs, getLog, setLog, learnThresholds, thresholds, clear, _boss: () => boss };
+    return { hp, spawn, cast, buff, tick, setMe, enrageSecs, setPrefs, getLog, setLog, learnThresholds, thresholds, clear, _boss: () => boss };
   }
 
   root.LudraEngine = { createEngine };

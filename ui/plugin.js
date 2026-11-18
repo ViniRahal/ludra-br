@@ -75,13 +75,13 @@ function say(text, urgent) {
 
 // ---- The engine --------------------------------------------------------
 
-const engine = window.LudraEngine.createEngine(DATA, {
+const engineHooks = {
   call(c) {
     if (!prefs.enabled) return;
     const at = Date.now();
     const until = c.end ? Math.max(c.end, at) + 1500 : at + (c.kind === "pre" ? 5000 : 8000);
     shown = [{ kind: c.kind, text: c.text, sub: c.sub, end: c.end || 0, until }, ...shown.filter((x) => x.until > at && x.text !== c.text)].slice(0, 2);
-    say(c.say, c.kind !== "pre");
+    if (!c.quiet) say(c.say, c.kind !== "pre");
     send();
   },
   state(s) {
@@ -105,8 +105,55 @@ const engine = window.LudraEngine.createEngine(DATA, {
     a2.storage.set("log", l).catch(() => {});
     renderLog();
   },
-});
+};
+const engine = window.LudraEngine.createEngine(DATA, engineHooks);
+const engineHooksCall = (c) => engineHooks.call(c);
 window.ludraLog = () => engine.getLog();
+window.ludraCall = (c) => engineHooksCall(c);
+
+// ---- From the meter: who you are, the stagger, the deaths -----------------
+// The stagger: "almost full" when the blue bar passes 85%, "broken" when it
+// falls from full. Deaths: each one, with the mechanic that came just before.
+let lastStagger = null;
+const deathsSeen = new Map(); // id -> deaths counted this fight
+let deathFight = 0;
+window.ludraDeaths = [];
+window.__TAURI__?.event.listen("meter", (e) => {
+  const v = e.payload || {};
+  engine.setMe(v.me_id || 0);
+  const key = live && live.key;
+  const st = v.boss && v.boss.stagger;
+  if (key && st != null && live.cur > 0) {
+    if (lastStagger != null && lastStagger < 85 && st >= 85 && st < 100 && !prefs.off[`${key}:stagger`]) {
+      engineHooksCall({ kind: "pre", text: "STAGGER QUASE CHEIO", sub: "Guardem o burst para a quebra.", say: "Stagger quase. Guardem o burst" });
+    }
+    if (lastStagger != null && lastStagger >= 80 && st <= lastStagger - 50 && !prefs.off[`${key}:stagger`]) {
+      engineHooksCall({ kind: "cast", text: "QUEBROU! BATAM TUDO", sub: "O boss está atordoado: usem tudo agora.", say: "Quebrou. Batam tudo" });
+    }
+  }
+  lastStagger = key ? st ?? null : null;
+  // Deaths, during a Ludra fight.
+  const pull = (live && live.pullAt) || 0;
+  if (!key || !pull) return;
+  if (pull !== deathFight) {
+    deathFight = pull;
+    deathsSeen.clear();
+    for (const r of v.rows || []) deathsSeen.set(r.id, r.deaths || 0);
+    return;
+  }
+  for (const r of v.rows || []) {
+    const was = deathsSeen.get(r.id) ?? 0;
+    const n = r.deaths || 0;
+    deathsSeen.set(r.id, n);
+    if (n <= was) continue;
+    const at = Date.now();
+    const mech = engine.getLog().filter((x) => x.boss === key && at - x.at <= 12000 && x.at >= pull && x.what && !/^(skill|efeito) /.test(x.what.title || "")).at(-1);
+    const what = mech ? mech.what.title.replace(/!/g, "") : "";
+    window.ludraDeaths.push({ pull, at, name: r.name, class: r.class, me: !!r.me, mech: what });
+    window.ludraDeaths = window.ludraDeaths.slice(-60);
+    engineHooksCall({ kind: "pre", text: `☠ ${r.name} morreu${what ? ` (${what})` : ""}`, sub: "", say: "", quiet: true });
+  }
+});
 
 // ---- The big text ------------------------------------------------------
 

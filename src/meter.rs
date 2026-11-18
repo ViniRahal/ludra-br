@@ -76,6 +76,8 @@ pub struct Member {
 #[derive(Debug, Clone, Serialize, PartialEq, Default)]
 pub struct View {
     pub me: Option<Me>,
+    /// Your entity in the game (0: not known yet).
+    pub me_id: i32,
     pub party: Vec<Member>,
     /// Your ping to the game server, in ms.
     pub ping: Option<i32>,
@@ -260,6 +262,7 @@ impl Meter {
         });
         View {
             me: me_info,
+            me_id: me.unwrap_or(0),
             party: party.into_iter().map(|(_, m)| m).collect(),
             ping: self.ping.current_ping_ms(),
             target: d.target_name.clone(),

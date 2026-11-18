@@ -41,10 +41,11 @@
     if (!won && dur < MIN_WIPE_MS) return;
     const rows = ((lastView && lastView.rows) || []).map((r) => ({ name: r.name, class: r.class, dps: r.dps, total: r.total, deaths: r.deaths || 0, me: !!r.me })).sort((a, b) => b.dps - a.dps);
     const mechs = (window.ludraLog?.() || [])
-      .filter((e) => e.boss === f.key && e.at >= f.pullAt - 2000 && e.what && !String(e.what.title || "").startsWith("skill "))
+      .filter((e) => e.boss === f.key && e.at >= f.pullAt - 2000 && e.what && !/^(skill|efeito) /.test(String(e.what.title || "")))
       .map((e) => ({ t: e.at - f.pullAt, title: `${e.what.title}${e.what.n > 1 ? ` ${e.what.n}` : ""}`, pct: e.pct }));
+    const deaths = (window.ludraDeaths || []).filter((d) => d.pull === f.pullAt).map((d) => ({ t: d.at - f.pullAt, name: d.name, mech: d.mech }));
     if (!rows.length && !mechs.length) return; // nothing seen of it
-    fights.unshift({ id: f.pullAt, key: f.key, name: f.name, at: Date.now(), dur, won, low: Math.round(f.low * 10) / 10, rows, mechs });
+    fights.unshift({ id: f.pullAt, key: f.key, name: f.name, at: Date.now(), dur, won, low: Math.round(f.low * 10) / 10, rows, mechs, deaths });
     fights = fights.slice(0, KEEP);
     save();
     render();
@@ -94,6 +95,12 @@
       );
       c.append(row);
     });
+    if (f.deaths && f.deaths.length) {
+      const d = el("div", "fDeaths");
+      d.append(el("b", "", `☠ Mortes (${f.deaths.length}): `));
+      d.append(document.createTextNode(f.deaths.map((x) => `${clock(x.t)} ${x.name}${x.mech ? ` (${x.mech})` : ""}`).join(" · ")));
+      c.append(d);
+    }
     if (f.mechs.length) {
       const m = el("div", "fMechs");
       for (const x of f.mechs.slice(0, 30)) m.append(el("span", "fMech", `${clock(x.t)} ${x.title}${x.pct != null ? ` (${String(x.pct).replace(".", ",")}%)` : ""}`));
