@@ -172,10 +172,25 @@ for (const r of document.querySelectorAll('.row input[type="range"]')) {
       box.hidden = false;
     } catch {}
   }
-  document.querySelector(".updateBtn").addEventListener("click", (e) => {
-    e.target.disabled = true;
-    e.target.textContent = "Baixando…";
-    T.core.invoke("update_now").catch(() => {});
+  const btn = document.querySelector(".updateBtn");
+  const text = document.querySelector(".updateText");
+  btn.addEventListener("click", () => {
+    btn.disabled = true;
+    btn.textContent = "Atualizando…";
+    T.core.invoke("update_now").catch((err) => {
+      btn.disabled = false;
+      btn.textContent = "Tentar de novo";
+      text.textContent = String(err);
+    });
+  });
+  T.event.listen("update", (e) => {
+    const { stage, detail } = e.payload || {};
+    const words = { download: "Baixando a versão nova…", install: "Trocando os arquivos…", restart: "Pronto. Reabrindo…" };
+    if (stage === "error") {
+      btn.disabled = false;
+      btn.textContent = "Tentar de novo";
+      text.textContent = detail || "Não deu para atualizar.";
+    } else if (words[stage]) text.textContent = words[stage];
   });
   check();
   setInterval(check, 30 * 60 * 1000);

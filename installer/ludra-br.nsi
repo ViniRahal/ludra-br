@@ -2,7 +2,7 @@
 Unicode true
 !include "MUI2.nsh"
 !define APP "Ludra BR"
-!define VERSION "0.6.4"
+!define VERSION "0.6.5"
 Name "${APP}"
 OutFile "LudraBR-Instalador-${VERSION}.exe"
 InstallDir "$LOCALAPPDATA\Programs\Ludra BR"
@@ -26,6 +26,10 @@ VIAddVersionKey /LANG=1046 "LegalCopyright" "GPL-3.0"
 
 Section "Ludra BR"
   SetOutPath "$INSTDIR"
+  ; An open Ludra BR would keep its file locked: close it first.
+  nsExec::Exec 'taskkill /IM ludra-br.exe /F'
+  Sleep 800
+  Delete "$INSTDIR\ludra-br.old.exe"
   File "..\target\x86_64-pc-windows-gnu\release\ludra-br.exe"
   File "WebView2Loader.dll"
   File "..\LICENSE"
@@ -43,7 +47,11 @@ Section "Ludra BR"
 SectionEnd
 
 Section "Uninstall"
+  nsExec::Exec 'taskkill /IM ludra-br.exe /F'
+  Sleep 800
   Delete "$INSTDIR\ludra-br.exe"
+  Delete "$INSTDIR\ludra-br.old.exe"
+  Delete "$INSTDIR\ludra-br.new.exe"
   Delete "$INSTDIR\WebView2Loader.dll"
   Delete "$INSTDIR\LICENSE"
   Delete "$INSTDIR\LEIA-ME.txt"

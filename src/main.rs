@@ -183,31 +183,85 @@ fn open_npcap() {
     }
 }
 
-/// The new version: downloaded by Windows' own PowerShell into the temp
-/// folder and its installer started, the program closing so it can be replaced.
+const EXE_URL: &str = "https://github.com/ViniRahal/ludra-br/raw/main/download/ludra-br.exe";
+
+/// The new version, in place: the new program is downloaded next to this one
+/// (by Windows' own PowerShell), swapped in (Windows lets a running program
+/// be renamed), and started; this one closes. No installer, settings kept.
+/// Progress and problems go to the page as "update" events.
 #[tauri::command]
 fn update_now(app: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        let say = |stage: &str, detail: String| {
+            let _ = app.emit("update", serde_json::json!({ "stage": stage, "detail": detail }));
+        };
+        match swap_in_new(&say) {
+            Ok(exe) => {
+                say("restart", String::new());
+                if std::process::Command::new(&exe).spawn().is_ok() {
+                    app.exit(0);
+                } else {
+                    say("error", "A versão nova foi baixada, mas não abriu. Abra o Ludra BR de novo.".into());
+                }
+            }
+            Err(e) => say("error", e),
+        }
+    });
+}
+
+fn swap_in_new(say: &dyn Fn(&str, String)) -> Result<std::path::PathBuf, String> {
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let dir = exe.parent().ok_or("pasta do programa não encontrada")?.to_path_buf();
+    let new = dir.join("ludra-br.new.exe");
+    let old = dir.join("ludra-br.old.exe");
+    let _ = std::fs::remove_file(&new);
+    say("download", String::new());
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        let script = "$f = Join-Path $env:TEMP 'LudraBR-Instalador.exe'; \
-            [Net.ServicePointManager]::SecurityProtocol = 'Tls12'; \
-            Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/ViniRahal/ludra-br/raw/main/download/LudraBR-Instalador.exe' -OutFile $f; \
-            Start-Process $f";
-        let ok = std::process::Command::new("powershell")
-            .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script])
+        let script = format!(
+            "$ProgressPreference='SilentlyContinue'; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing -Uri '{EXE_URL}?t={}' -OutFile '{}'",
+            capture::now_ms(),
+            new.display().to_string().replace('\'', "''")
+        );
+        let out = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", &script])
             .creation_flags(CREATE_NO_WINDOW)
-            .spawn()
-            .is_ok();
-        if ok {
-            app.exit(0);
-        } else {
-            let _ = std::process::Command::new("explorer").arg("https://github.com/ViniRahal/ludra-br/raw/main/download/LudraBR-Instalador.exe").spawn();
+            .output()
+            .map_err(|e| format!("Não deu para baixar: {e}"))?;
+        if !out.status.success() {
+            let err = String::from_utf8_lossy(&out.stderr);
+            let line = err.lines().find(|l| !l.trim().is_empty()).unwrap_or("erro desconhecido").trim().to_string();
+            return Err(format!("Não deu para baixar: {line}"));
         }
     }
-    #[cfg(not(windows))]
-    let _ = app;
+    let ok = std::fs::read(&new).map(|b| b.len() > 1_000_000 && b.starts_with(b"MZ")).unwrap_or(false);
+    if !ok {
+        let _ = std::fs::remove_file(&new);
+        return Err("O arquivo baixado veio incompleto. Tente de novo.".into());
+    }
+    say("install", String::new());
+    let _ = std::fs::remove_file(&old);
+    std::fs::rename(&exe, &old).map_err(|e| format!("Não deu para trocar o programa: {e}"))?;
+    if let Err(e) = std::fs::rename(&new, &exe) {
+        let _ = std::fs::rename(&old, &exe);
+        return Err(format!("Não deu para trocar o programa: {e}"));
+    }
+    Ok(exe)
+}
+
+/// What an update left behind: the old program, renamed while it ran.
+fn clean_after_update() {
+    if let Some(dir) = std::env::current_exe().ok().and_then(|e| e.parent().map(|d| d.to_path_buf())) {
+        let old = dir.join("ludra-br.old.exe");
+        for _ in 0..20 {
+            if !old.exists() || std::fs::remove_file(&old).is_ok() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(500));
+        }
+    }
 }
 
 /// Alt+E, from anywhere (the game too): opens this window, or tucks it away
@@ -217,8 +271,14 @@ fn hotkey(app: tauri::AppHandle) {
     std::thread::spawn(move || unsafe {
         use windows_sys::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, MOD_ALT, MOD_NOREPEAT};
         use windows_sys::Win32::UI::WindowsAndMessaging::{GetMessageW, MSG, WM_HOTKEY};
-        if RegisterHotKey(std::ptr::null_mut(), 1, MOD_ALT | MOD_NOREPEAT, 'E' as u32) == 0 {
-            return;
+        // Right after an update the old copy may still hold the key a moment.
+        let mut tries = 0;
+        while RegisterHotKey(std::ptr::null_mut(), 1, MOD_ALT | MOD_NOREPEAT, 'E' as u32) == 0 {
+            tries += 1;
+            if tries > 20 {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(500));
         }
         let mut msg: MSG = std::mem::zeroed();
         while GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0) > 0 {
@@ -370,6 +430,7 @@ fn main() {
                     }
                 });
             }
+            std::thread::spawn(clean_after_update);
             hotkey(handle.clone());
             follow_cursor(handle.clone(), state.clone());
             start_capture(handle, state.clone());
