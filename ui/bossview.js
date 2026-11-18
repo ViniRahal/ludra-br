@@ -19,7 +19,21 @@
   window.renderBoss = function (box, live, view, opts = {}) {
     const now = Date.now();
     const b = view && view.boss;
-    const name = live ? live.name : view && view.target ? view.target : null;
+    // A Ludra boss: the engine's own reading (with its calls). Any other boss
+    // of the game: the meter's target, its name and HP from the game.
+    const ours = live && live.key;
+    const other = !ours && view && view.target && view.target_boss && view.target_pct != null;
+    if (other) {
+      live = {
+        name: view.target,
+        pct: view.target_pct,
+        cur: view.target_hp,
+        dps: view.dps,
+        pullAt: view.time_ms > 0 ? now - view.time_ms : 0,
+        marks: [],
+      };
+    }
+    const name = live ? live.name : null;
     box.replaceChildren();
     box.classList.toggle("empty", !name);
     if (!name) {

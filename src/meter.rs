@@ -81,6 +81,11 @@ pub struct View {
     pub ping: Option<i32>,
     pub target: String,
     pub target_id: i32,
+    /// The target is a boss (any boss of the game, from its model code).
+    pub target_boss: bool,
+    /// The target's HP: % left and the HP now (none: not known).
+    pub target_pct: Option<f64>,
+    pub target_hp: i64,
     pub time_ms: i64,
     pub dps: f64,
     pub rows: Vec<Row>,
@@ -248,12 +253,20 @@ impl Meter {
             })
             .collect();
         party.sort_by_key(|(slot, _)| *slot);
+        // The target's HP: the game's own number, else its max less the damage seen.
+        let target_hp = (d.target_max_hp > 0).then(|| {
+            let h = if d.target_current_hp >= 0 { d.target_current_hp } else { d.target_max_hp - d.target_total_damage };
+            h.clamp(0, d.target_max_hp)
+        });
         View {
             me: me_info,
             party: party.into_iter().map(|(_, m)| m).collect(),
             ping: self.ping.current_ping_ms(),
             target: d.target_name.clone(),
             target_id: d.target_id,
+            target_boss: d.target_is_boss,
+            target_pct: target_hp.map(|h| ((h as f64 / d.target_max_hp as f64) * 1000.0).round() / 10.0),
+            target_hp: target_hp.unwrap_or(0),
             time_ms: d.battle_time,
             dps: rows.iter().map(|r| r.dps).sum(),
             rows,
