@@ -101,4 +101,5 @@
     if (rows.some((r) => r.name.startsWith("#"))) box.append(el("div", "mHint", "Dê um TP para o app ver os nomes"));
     foot(box, v);
   };
+  window.meterKit = { COLORS, NAMES, short, clock, icon, el };
 })();

@@ -86,6 +86,7 @@ const engine = window.LudraEngine.createEngine(DATA, {
   },
   state(s) {
     if (live && !s) window.fightEnded?.();
+    window.onBossState?.(s);
     live = s;
     // Comes with each of the boss's HP records (many a second): the page and
     // the widget only when what they show changes.
@@ -105,6 +106,7 @@ const engine = window.LudraEngine.createEngine(DATA, {
     renderLog();
   },
 });
+window.ludraLog = () => engine.getLog();
 
 // ---- The big text ------------------------------------------------------
 
