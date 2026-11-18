@@ -35,6 +35,16 @@
     if (size) i.style.width = i.style.height = `${size}px`;
     return i;
   };
+  const ago = (t) => {
+    if (!t) return "—";
+    const m = Math.floor((Date.now() - t) / 60000);
+    if (m < 1) return "agora";
+    if (m < 60) return `há ${m} min`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `há ${h} ${h === 1 ? "hora" : "horas"}`;
+    const d = Math.floor(h / 24);
+    return `há ${d} ${d === 1 ? "dia" : "dias"}`;
+  };
   function greet() {
     const h = new Date().getHours();
     const part = h < 5 ? "Boa noite" : h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
@@ -88,7 +98,7 @@
     box("Poder de combate", c.cp ? short(c.cp) : "—", "blue");
     box("Gear score", c.gs ? c.gs.toLocaleString("pt-BR") : "—");
     box("Classe", NAMES[c.class] || "—");
-    box("Visto por último", c.seen ? new Date(c.seen).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
+    box("Atualizado", ago(c.seen));
   }
   function onMe(me) {
     if (!me || !me.name) return;
@@ -125,7 +135,10 @@
   T && T.app && T.app.getVersion().then((v) => { const e = document.querySelector(".ver"); if (e) e.textContent = `v${v}`; }).catch(() => {});
   render();
   greet();
-  setInterval(greet, 60000);
+  setInterval(() => {
+    greet();
+    render();
+  }, 60000);
 })();
 // Each slider shows its value, as a %.
 for (const r of document.querySelectorAll('.row input[type="range"]')) {
