@@ -36,7 +36,7 @@ window.LUDRA_BR = {
         { id: "bingo1", pct: 50, title: "BINGO 1", sub: "Achem o quadrado azul. No atordoamento, BATAM TUDO.", learn: { skill: 1803040, nth: 1 } },
         { id: "zikel", pct: 45, title: "ZIKEL", sub: "Lasers em sequência. Desviem na ordem: sul, oeste, leste, norte." },
         { id: "cores", pct: 33, title: "CORES", sub: "Vermelho de um lado, azul do outro. Longe da outra cor." },
-        { id: "bingo2", pct: 25, title: "BINGO 2", sub: "Igual ao Bingo 1, mas pulem os anéis. Healer: guarde a imunidade.", learn: { skill: 1803040, nth: 2 } },
+        { id: "bingo2", pct: 25, title: "BINGO 2", sub: "Igual ao Bingo 1, mas pulem as ondas antes. Healer: guarde a imunidade.", learn: { skill: 1803040, nth: 2 } },
         { id: "circulos", pct: 10, title: "CÍRCULOS", sub: "Um por círculo da sua cor. Entre só no último segundo.", learn: { skill: 1803030, nth: 1 } },
       ],
       casts: [
