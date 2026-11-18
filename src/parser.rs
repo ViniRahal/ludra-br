@@ -55,7 +55,8 @@ pub fn read_varint(bytes: &[u8], offset: usize) -> VarIntResult {
 pub enum Event {
     /// `{ entity, kind: 2, count: 1, res: 0, hp }`
     Hp { entity: i64, kind: u8, count: u8, res: u8, hp: u64 },
-    Spawn { entity: i64, max: u64 },
+    /// `code`: the monster's model code (the NPC id, e.g. Ludra 2300290).
+    Spawn { entity: i64, max: u64, code: u32 },
     Cast { caster: i64, skill: u32 },
     Use { caster: i64, skill: u32 },
     Buff { entity: i64, abnormal: u32 },
@@ -70,6 +71,17 @@ const HP_BOUND: u64 = 100_000_000;
 
 /// The Abyssal Forge bosses' skills and buffs (data.js's ranges, a little
 /// wider): Talisra/Ketu 1801xxx to Ludra 1803xxx, and their 8-digit variants.
+/// The bosses Ludra BR knows by their model code, whatever their HP (a
+/// dungeon's are far under a raid's): data.js's `codes`, kept the same.
+pub const BOSS_CODES: &[u32] = &[
+    // Abyssal Forge: Ludra (Normal, Hard): Ludra, Rahu, Ketu.
+    2301014, 2300290, 2301006, 2300282, 2301007, 2300283,
+    // Draupnir Cave: Saraswati, Lakshmi, Bakarma (Exploration, Conquest, Hard, other).
+    2310403, 2300403, 2320403, 2330403, 2310401, 2300401, 2320401, 2330401, 2310471, 2300471, 2320471, 2330424, 2090428,
+    // Urugugu Canyon: Raur, Urahum, Auldor.
+    2310206, 2300206, 2320206, 2330206, 2310207, 2300207, 2320207, 2330207, 2310218, 2300218, 2320218, 2330218,
+];
+
 pub fn ours(id: u32) -> bool {
     (1_801_000..=1_803_999).contains(&id) || (18_010_000..=18_039_999).contains(&id)
 }
@@ -178,10 +190,11 @@ impl Processor {
         let mut i = 0;
         while i + 5 < data.len() {
             if data[i] == 0x41 && data[i + 1] == 0x36 && !(i > 0 && data[i - 1] == 0x00) {
-                if let Some((entity, max)) = spawn_record(&data[i + 2..]) {
-                    if max >= MIN_BOSS_HP && self.big.get(&(entity as i32)) != Some(&max) {
+                if let Some((entity, max, code)) = spawn_record(&data[i + 2..]) {
+                    let known = BOSS_CODES.contains(&code);
+                    if (max >= MIN_BOSS_HP || known) && self.big.get(&(entity as i32)) != Some(&max) {
                         self.big.insert(entity as i32, max);
-                        self.events.push(Event::Spawn { entity, max });
+                        self.events.push(Event::Spawn { entity, max, code });
                     }
                 }
                 i += 2;
@@ -293,7 +306,7 @@ fn buff_record(body: &[u8]) -> Option<(i64, u32)> {
 /// `41 36 <entity varint> ...`: the model code sits before `00 (00|40) 02`,
 /// and a little after it `01 <current varint> <max varint>` (A2Tools'
 /// `spawn_mob_code` and `extract_and_register_mob_type`).
-fn spawn_record(body: &[u8]) -> Option<(i64, u64)> {
+fn spawn_record(body: &[u8]) -> Option<(i64, u64, u32)> {
     let entity = read_varint(body, 0);
     if entity.length <= 0 || !(100..=9_999_999).contains(&entity.value) {
         return None;
@@ -310,6 +323,7 @@ fn spawn_record(body: &[u8]) -> Option<(i64, u64)> {
         }
     }
     let code_at = code_at?;
+    let code = body[code_at - 3] as u32 | (body[code_at - 2] as u32) << 8 | (body[code_at - 1] as u32) << 16;
     let mut s = code_at + 3;
     let hp_end = body.len().saturating_sub(2).min(s + 64);
     while s < hp_end {
@@ -318,7 +332,7 @@ fn spawn_record(body: &[u8]) -> Option<(i64, u64)> {
             if cur.length > 0 && cur.value > 0 {
                 let max = read_varint(body, s + 1 + cur.length as usize);
                 if max.length > 0 && max.value >= cur.value {
-                    return Some((entity.value as i64, max.value as u64));
+                    return Some((entity.value as i64, max.value as u64, code));
                 }
             }
         }
@@ -421,7 +435,7 @@ mod tests {
         body.extend(varint(150_000_000));
         body.extend_from_slice(&[0, 0, 0]);
         p.consume_stream(&packet([0x41, 0x36], &body));
-        assert_eq!(p.events, vec![Event::Spawn { entity: 5000, max: 150_000_000 }]);
+        assert_eq!(p.events, vec![Event::Spawn { entity: 5000, max: 150_000_000, code: 0x563412 }]);
         // Its HP above the plain bound is now believed.
         p.events.clear();
         p.consume_stream(&packet([0x00, 0x8D], &hp_body(5000, 149_000_000)));
@@ -440,10 +454,14 @@ mod tests {
     fn reads_real_spawns() {
         let bak = hex("8f024136fbaa030c220047412300000200d89f47001ca2c6004c38460000874300c001c0cf24c0cf24640000006400000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000604110181969800ffffffffffffffff8075d52abb030000fbaa03013000d89f47001ca2c6004c3846110284969800ffffffffffffffff8075d52abb030000fbaa030100d89f47001ca2c6004c38461103bc060000ffffffffffffffff8075d52abb030000fbaa030100d89f47001ca2c6004c38461106d6010000ffffffffffffffff8075d52abb030000fbaa030100d89f47001ca2c6004c384601002d00000003012800000028000000437253c900");
         let at = bak.windows(2).position(|w| w == [0x41, 0x36]).unwrap();
-        assert_eq!(spawn_record(&bak[at + 2..]), Some((54651, 600_000)));
+        assert_eq!(spawn_record(&bak[at + 2..]), Some((54651, 600_000, 2_310_471)));
+        // Bakarma (Draupnir, a dungeon boss of 600,000 HP) is known by its code.
+        let mut p = Processor::new();
+        p.scan_spawns(&bak);
+        assert_eq!(p.events, vec![Event::Spawn { entity: 54651, max: 600_000, code: 2_310_471 }]);
         let mut p = Processor::new();
         p.scan_spawns(&hex("111D37860C2F03E5D502ED90F3910A4736FC2E01000A473690750100BF014136A3E3010420006D0B20000002C5ACD1C6D4E19B460064904649E7034273170180D0A54C80D0A54C640000006400000200025F"));
-        assert_eq!(p.events, vec![Event::Spawn { entity: 29091, max: 160_000_000 }]);
+        assert_eq!(p.events, vec![Event::Spawn { entity: 29091, max: 160_000_000, code: 2_100_077 }]);
     }
 
     /// A real live-HP packet (a Training Scarecrow, entity 25839), with a boss's HP put in.

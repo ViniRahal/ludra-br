@@ -35,6 +35,11 @@
 
     const npc = new Map(); // entity -> { hp, at }, monsters only, a few seconds
     const spawnMax = new Map(); // entity -> max HP, from its spawn (the game's own number)
+    const spawnKey = new Map(); // entity -> boss key, from its spawn's model code (data.js `codes`)
+    function bossOfCode(code) {
+      for (const [key, b] of Object.entries(bosses)) if ((b.codes || []).includes(code)) return key;
+      return null;
+    }
     let boss = null; // { id, key, max, maxFromPeak, cur, pct, low, fired:Set, seen:{skill:n}, start }
     let log = []; // { at, boss, what, pct }
 
@@ -189,6 +194,12 @@
       const t = now();
       for (const [k, v] of npc) if (t - v.at > KEEP_MS) npc.delete(k);
       if (boss && boss.id === id) return void (update(value, at), emitState());
+      // A boss known by its spawn (a dungeon's, far under a raid's HP): its fight.
+      const coded = spawnKey.get(id);
+      if (coded) {
+        if (!boss || boss.id !== id) newFight(id, coded, value);
+        return;
+      }
       // Players and small monsters: dropped, never kept.
       if (value < data.minBossHp) return;
       npc.set(id, { hp: value, at: t });
@@ -250,7 +261,15 @@
       const id = Number(d.caster);
       identify(id, key, at);
       const c = bosses[key].casts.find((x) => x.skill === skill);
-      if (!c) return emitState();
+      if (!c) {
+        // A skill with no call yet: logged once per fight, so a raid's log
+        // shows which id is which mechanic (the bombs, for one).
+        if (!boss.seen[`u:${skill}`]) {
+          boss.seen[`u:${skill}`] = 1;
+          logIt({ skill, n: 1, title: `skill ${skill}` }, at);
+        }
+        return emitState();
+      }
       // The same skill comes as a cast (09 38) and when it goes off (02 38): once only.
       // Its 02 38 comes when the cast bar ends, which can be 15 s on.
       const k = `cast:${skill}`;
@@ -309,8 +328,13 @@
     function spawn(d) {
       const id = Number(d && d.entity);
       const max = Number(d && d.max);
-      if (!Number.isFinite(id) || !(max >= data.minBossHp)) return;
+      const key = bossOfCode(Number(d && d.code));
+      if (!Number.isFinite(id) || !(max >= data.minBossHp || key)) return;
       spawnMax.set(id, max);
+      if (key) {
+        spawnKey.set(id, key);
+        if (spawnKey.size > 200) spawnKey.delete(spawnKey.keys().next().value);
+      }
       if (spawnMax.size > 200) spawnMax.delete(spawnMax.keys().next().value);
       if (boss && boss.id === id && boss.maxFromPeak) {
         boss.max = max;

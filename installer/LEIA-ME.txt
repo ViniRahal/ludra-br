@@ -1,4 +1,4 @@
-Ludra BR 0.4.3
+Ludra BR 0.5.0
 ==============
 
 Mostra a vida do boss em % e avisa as mecânicas do Ludra (Ludra, Rahu, Ketu)
