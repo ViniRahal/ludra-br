@@ -1,0 +1,44 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Ludra BR",
+  "version": "0.4.3",
+  "identifier": "br.ludralfg.ludrabr",
+  "build": { "frontendDist": "ui" },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main", "title": "Ludra BR", "url": "index.html",
+        "width": 500, "height": 720, "minWidth": 420, "minHeight": 480,
+        "backgroundThrottling": "disabled",
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required"
+      },
+      {
+        "label": "meter", "title": "Ludra BR - dano", "url": "meter.html",
+        "width": 420, "height": 330, "x": 40, "y": 300,
+        "visible": false, "decorations": false, "transparent": true, "alwaysOnTop": true,
+        "skipTaskbar": true, "resizable": false, "shadow": false, "focus": false,
+        "backgroundThrottling": "disabled",
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required"
+      },
+      {
+        "label": "boss", "title": "Ludra BR - boss", "url": "boss.html",
+        "width": 440, "height": 130, "x": 1300, "y": 140,
+        "visible": false, "decorations": false, "transparent": true, "alwaysOnTop": true,
+        "skipTaskbar": true, "resizable": false, "shadow": false, "focus": false,
+        "backgroundThrottling": "disabled",
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required"
+      },
+      {
+        "label": "overlay", "title": "Ludra BR - texto", "url": "overlay.html",
+        "width": 840, "height": 480, "x": 540, "y": 80,
+        "visible": false, "decorations": false, "transparent": true, "alwaysOnTop": true,
+        "skipTaskbar": true, "resizable": false, "shadow": false, "focus": false,
+        "backgroundThrottling": "disabled",
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required"
+      }
+    ],
+    "security": { "csp": null }
+  },
+  "bundle": { "active": false, "icon": ["icons/icon.ico", "icons/32x32.png"] }
+}

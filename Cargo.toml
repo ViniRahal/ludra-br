@@ -1,0 +1,46 @@
+[package]
+name = "ludra-br"
+version = "0.4.3"
+edition = "2021"
+license = "GPL-3.0-only"
+description = "Ludra BR: vida do boss e avisos de mecânica do Ludra em português"
+
+[features]
+default = ["app"]
+app = ["dep:tauri", "dep:tauri-build"]
+
+[lib]
+name = "ludra_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ludra-br"
+path = "src/main.rs"
+required-features = ["app"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [], optional = true }
+
+[dependencies]
+a2tools = { package = "a2tools-dps-meter", path = "vendor/a2tools/src-tauri", default-features = false }
+tauri = { version = "2", features = [], optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+libloading = "0.8"
+lz4_flex = "0.11"
+parking_lot = "0.12"
+tracing = "0.1"
+
+
+[workspace]
+exclude = ["vendor"]
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_System_SystemInformation"] }

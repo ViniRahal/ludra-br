@@ -1,0 +1,89 @@
+html, body { margin: 0; background: transparent; overflow: hidden; user-select: none; }
+body { padding: 4px; }
+.panel { display: flex; gap: 10px; align-items: center; width: 420px; box-sizing: border-box; padding: 8px 12px; border-radius: 10px; background: rgba(10, 12, 18, var(--o, 0.55)); color: #fff; font: 13px/1.25 "Segoe UI", system-ui, sans-serif; text-shadow: 0 1px 2px #000, 0 0 2px #000; cursor: grab; }
+body.locked .panel { cursor: default; }
+.panel.gone { visibility: hidden; }
+.panel.empty { justify-content: center; outline: 2px dashed rgba(255, 255, 255, 0.5); }
+.bEmpty { padding: 10px 0; color: rgba(255, 255, 255, 0.85); }
+.bLeft { width: 64px; text-align: center; }
+.bPct { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.bRight { flex: 1; min-width: 0; }
+.bTop { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.bName { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bClock { font-size: 12px; color: rgba(255, 255, 255, 0.8); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bClock.hot { color: #ff9a3c; font-weight: 700; }
+.bRow { display: flex; gap: 8px; align-items: center; margin: 4px 0; }
+.bBars { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.bHp { position: relative; height: 14px; background: rgba(0, 0, 0, 0.6); border-radius: 2px; overflow: hidden; }
+.bHpFill { height: 100%; background: #e5525e; transition: width 0.25s linear; }
+.bMark { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: rgba(255, 216, 77, 0.9); }
+.bStag { height: 6px; background: rgba(0, 0, 0, 0.6); border-radius: 2px; overflow: hidden; }
+.bStagFill { height: 100%; background: #9fd0ff; transition: width 0.25s linear; }
+.bKill { min-width: 40px; text-align: right; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.bBottom { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.bAggro { display: inline-flex; gap: 5px; align-items: center; font-weight: 700; font-size: 14px; color: var(--c, #7fe0ff); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bAggro img { width: 18px; height: 18px; filter: drop-shadow(0 1px 1px #000); }
+.bAggro.me { text-decoration: underline; }
+.bAggro.none { color: rgba(255, 255, 255, 0.5); font-weight: 400; font-size: 12px; }
+.bNext { font-size: 12px; color: #ffd84d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---- Visual "natural": no box, like the game's own HUD ---------------- */
+.panel.t-natural { background: none; padding: 4px 6px; gap: 8px; font-family: "Bahnschrift", "Segoe UI", system-ui, sans-serif; text-shadow: 0 0 3px #000, 0 0 3px #000, 0 1px 3px #000; }
+.panel.t-natural .bPct { font-size: 24px; font-weight: 700; }
+.panel.t-natural .bName { font-size: 15px; font-weight: 600; }
+.panel.t-natural .bHp { height: 10px; background: rgba(0, 0, 0, 0.45); border-radius: 0; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55); }
+.panel.t-natural .bHpFill { background: linear-gradient(180deg, #ff7a82, #d9434f 55%, #a8303b); }
+.panel.t-natural .bStag { height: 4px; background: rgba(0, 0, 0, 0.45); border-radius: 0; }
+.panel.t-natural .bStagFill { background: #a9d6ff; }
+.panel.t-natural .bMark { width: 1px; background: rgba(255, 230, 140, 0.85); }
+.panel.t-natural .bKill { font-size: 15px; font-weight: 600; }
+.panel.t-natural .bAggro { font-size: 13px; font-weight: 600; }
+.panel.t-natural .bNext { color: #ffe08a; }
+
+/* ---- Visual "moldura": a dark frame with a gold edge, like a game window */
+.panel.t-moldura { background: linear-gradient(180deg, rgba(28, 24, 18, 0.88), rgba(12, 11, 9, 0.88)); border: 1px solid rgba(214, 178, 106, 0.75); border-radius: 4px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.8), inset 0 0 12px rgba(214, 178, 106, 0.12); padding: 8px 12px 7px; font-family: "Bahnschrift", "Segoe UI", system-ui, sans-serif; }
+.panel.t-moldura .bLeft { border-right: 1px solid rgba(214, 178, 106, 0.35); padding-right: 10px; }
+.panel.t-moldura .bPct { color: #f3d48a; font-size: 26px; font-weight: 700; }
+.panel.t-moldura .bName { color: #f5ead2; font-weight: 600; letter-spacing: 0.02em; }
+.panel.t-moldura .bHp { height: 12px; border-radius: 1px; background: #1a1210; box-shadow: inset 0 1px 2px #000, 0 0 0 1px rgba(214, 178, 106, 0.35); }
+.panel.t-moldura .bHpFill { background: linear-gradient(180deg, #ff6b62 0%, #c42e2e 50%, #8e1c22 100%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35); }
+.panel.t-moldura .bStag { height: 5px; border-radius: 1px; background: #10161c; box-shadow: 0 0 0 1px rgba(214, 178, 106, 0.25); }
+.panel.t-moldura .bStagFill { background: linear-gradient(180deg, #cfe9ff, #6fb2f0); }
+.panel.t-moldura .bMark { width: 2px; background: #f3d48a; box-shadow: 0 0 2px #000; }
+.panel.t-moldura .bKill { color: #f5ead2; }
+.panel.t-moldura .bNext { color: #f3d48a; }
+
+/* ---- Visual "mínimo": one thin line, for those who want little ---------- */
+.panel.t-minimo { width: 340px; background: none; padding: 2px 4px; gap: 6px; text-shadow: 0 0 3px #000, 0 0 3px #000; }
+.panel.t-minimo .bLeft { width: auto; }
+.panel.t-minimo .bPct { font-size: 18px; }
+.panel.t-minimo .bName { font-size: 13px; }
+.panel.t-minimo .bClock { display: none; }
+.panel.t-minimo .bHp { height: 6px; border-radius: 3px; background: rgba(0, 0, 0, 0.5); }
+.panel.t-minimo .bHpFill { background: #ff5964; }
+.panel.t-minimo .bStag { height: 3px; border-radius: 2px; background: rgba(0, 0, 0, 0.5); }
+.panel.t-minimo .bMark { width: 1px; background: rgba(255, 255, 255, 0.7); }
+.panel.t-minimo .bKill { font-size: 12px; min-width: 32px; }
+.panel.t-minimo .bAggro { font-size: 12px; }
+.panel.t-minimo .bAggro img { width: 14px; height: 14px; }
+.panel.t-minimo .bNext { font-size: 11px; }
+
+/* ---- One line per bar: HP (kill time), stagger, enrage (orange countdown) */
+.bLine { display: flex; gap: 8px; align-items: center; margin-top: 3px; }
+.bLine > :first-child { flex: 1; }
+.bNum { min-width: 44px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.lHp .bNum { font-size: 15px; }
+.lStag .bNum { min-height: 0; }
+.bRage { height: 6px; background: rgba(0, 0, 0, 0.6); border-radius: 2px; overflow: hidden; }
+.bRageFill { height: 100%; background: linear-gradient(180deg, #ffc067, #f08a24); transition: width 1s linear; }
+.lRage .bNum { color: #ffa23a; font-size: 13px; }
+.lRage.hot .bRageFill { background: linear-gradient(180deg, #ff8a5c, #e0431f); }
+.lRage.hot .bNum { color: #ff6a3a; }
+.panel.t-moldura .bRage { height: 5px; border-radius: 1px; background: #1c140c; box-shadow: 0 0 0 1px rgba(214, 178, 106, 0.25); }
+.panel.t-minimo .bRage { height: 3px; }
+.panel.t-minimo .bNum { font-size: 11px; min-width: 32px; }
+.bBottom { margin-top: 4px; }
+.bNum { min-width: 92px; white-space: nowrap; }
+.bNum small { font-size: 10px; font-weight: 600; opacity: 0.75; text-transform: uppercase; letter-spacing: 0.04em; }
+.panel.t-minimo .bNum { min-width: 70px; }
+.panel.t-minimo .bNum small { font-size: 9px; }

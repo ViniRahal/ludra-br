@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Ludra BR</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="meter.css" />
+  </head>
+  <body>
+    <div class="status" hidden></div>
+    <header class="top">
+      <div class="live" aria-live="polite">
+        <div class="liveName">Esperando o boss</div>
+        <div class="bar"><div class="fill"></div><span class="pct">—</span></div>
+        <div class="liveNext"></div>
+        <div class="liveStats"></div>
+      </div>
+      <label class="switch"><span>Avisos ligados</span><input type="checkbox" class="enabled" /></label>
+      <label class="switch"><span>Voz dos avisos</span><input type="checkbox" class="speakTop" /></label>
+      <label class="switch"><span>Texto grande na tela</span><input type="checkbox" class="widget" /></label>
+      <label class="switch"><span>Painel do boss na tela (vida, aggro)</span><input type="checkbox" class="bossOn" /></label>
+      <label class="switch"><span>Visual do painel</span><select class="bossTheme"><option value="moldura">B: Moldura do jogo</option><option value="natural">A: Natural (sem caixa)</option><option value="minimo">C: Mínimo</option><option value="caixa">D: Caixa escura</option></select></label>
+      <label class="switch"><span>Medidor de dano na tela</span><input type="checkbox" class="meterOn" /></label>
+      <label class="switch"><span>Travar no lugar (cliques passam para o jogo)</span><input type="checkbox" class="lock" /></label>
+      <div class="inline">
+        <button type="button" class="btn test">Testar</button>
+        <span class="note small">Toca um Bingo de mentira.</span>
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button type="button" class="tab isActive" data-tab="mec">Mecânicas</button>
+      <button type="button" class="tab" data-tab="dano">Dano</button>
+      <button type="button" class="tab" data-tab="log">Registro</button>
+      <button type="button" class="tab" data-tab="look">Aparência e voz</button>
+    </nav>
+
+    <section class="pane" data-pane="mec">
+      <label class="switch"><span>Avisar quando o boss usa a mecânica</span><input type="checkbox" class="castCalls" /></label>
+      <p class="note sub">Vem do próprio jogo: quando o boss começa a mecânica. Sempre certo.</p>
+      <label class="switch"><span>Avisar pela % de vida</span><input type="checkbox" class="hpCalls" /></label>
+      <p class="note sub">Avisa na % dos guias. Ajuste em "Registro" depois de uma luta.</p>
+      <label class="row"><span>Aviso antes (em %)</span>
+        <select class="prewarn">
+          <option value="0">Não avisar antes</option>
+          <option value="2">2%</option>
+          <option value="3">3%</option>
+          <option value="5">5%</option>
+        </select>
+      </label>
+      <div class="bosses"></div>
+    </section>
+
+    <section class="pane" data-pane="dano" hidden>
+      <p class="note">Quem bateu quanto no boss, lido da luta como nos medidores de DPS. A coluna do meio é o dano por segundo dos últimos 10 segundos (verde: acima da média).</p>
+      <div class="meter mainMeter"></div>
+      <label class="row"><span>Fundo do medidor na tela</span><input type="range" class="meterOpacity" min="30" max="100" step="5" /></label>
+    </section>
+
+    <section class="pane" data-pane="log" hidden>
+      <p class="note">Em que % de vida cada mecânica realmente veio, nas suas lutas. Use isso para acertar os avisos por %.</p>
+      <div class="inline">
+        <button type="button" class="btn learn">Ajustar % pelo registro</button>
+        <button type="button" class="btn copy">Copiar</button>
+        <button type="button" class="btn clearLog">Limpar</button>
+      </div>
+      <p class="note learnNote"></p>
+      <textarea class="logText" readonly hidden></textarea>
+      <table class="logTable">
+        <thead><tr><th>Quando</th><th>Boss</th><th>Mecânica</th><th>Vida</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="pane" data-pane="look" hidden>
+      <label class="row"><span>Tamanho do texto</span>
+        <select class="size">
+          <option value="32">Pequeno</option>
+          <option value="44">Médio</option>
+          <option value="60">Grande</option>
+          <option value="80">Enorme</option>
+        </select>
+      </label>
+      <label class="row"><span>Cor do texto</span><input type="color" class="fg" /></label>
+      <label class="row"><span>Fundo</span><input type="color" class="bg" /></label>
+      <label class="row"><span>Transparência do fundo</span><input type="range" class="bgOpacity" min="0" max="100" step="5" /></label>
+      <label class="switch"><span>Mostrar a vida do boss na tela</span><input type="checkbox" class="showHp" /></label>
+      <hr />
+      <label class="switch"><span>Falar os avisos</span><input type="checkbox" class="speak" /></label>
+      <label class="row"><span>Volume</span><input type="range" class="volume" min="0" max="100" step="5" /></label>
+      <label class="row"><span>Voz</span><select class="voiceName"></select></label>
+      <label class="row"><span>Velocidade</span>
+        <select class="rate">
+          <option value="0.9">0,9×</option>
+          <option value="1">1×</option>
+          <option value="1.15">1,15×</option>
+          <option value="1.3">1,3×</option>
+          <option value="1.5">1,5×</option>
+        </select>
+      </label>
+      <p class="note voiceNote"></p>
+      <p class="note">Destravado, arraste o texto para onde quiser. Clique duas vezes nele para abrir esta janela.</p>
+    </section>
+
+    <script src="a2.js"></script>
+    <script src="data.js"></script>
+    <script src="logic.js"></script>
+    <script src="plugin.js"></script>
+    <script src="status.js"></script>
+    <script src="meterview.js"></script>
+    <script src="meterctl.js"></script>
+    <script src="bossctl.js"></script>
+  </body>
+</html>

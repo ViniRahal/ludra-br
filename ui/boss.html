@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Ludra BR - boss</title>
+    <link rel="stylesheet" href="boss.css" />
+  </head>
+  <body>
+    <div class="panel t-moldura"></div>
+    <script src="bossview.js"></script>
+    <script>
+      // The boss panel over the game: the boss's HP from the settings window
+      // (what the engine reads), the aggro and the stagger from the meter.
+      const box = document.querySelector(".panel");
+      const T = window.__TAURI__;
+      let live = null, view = null, locked = false;
+      function draw() {
+        renderBoss(box, live, view, { preview: !locked });
+        const r = box.getBoundingClientRect();
+        T && T.core.invoke("overlay_areas", { areas: [{ x: r.left, y: r.top, width: Math.max(1, r.width), height: Math.max(1, r.height) }] });
+      }
+      setInterval(draw, 250);
+      if (T) {
+        T.event.listen("boss-live", (e) => { live = e.payload; draw(); });
+        T.event.listen("meter", (e) => { view = e.payload; draw(); });
+        T.event.listen("boss-look", (e) => {
+          const t = (e.payload && e.payload.theme) || "moldura";
+          box.className = `panel t-${t}`;
+          draw();
+        });
+        T.event.listen("locked", (e) => { locked = !!e.payload; document.body.classList.toggle("locked", locked); draw(); });
+        T.core.invoke("overlay_locked").then((v) => { locked = !!v; document.body.classList.toggle("locked", locked); draw(); });
+        T.event.emitTo("main", "boss-hello", {});
+      }
+      let press = null, last = 0;
+      box.addEventListener("mousedown", (e) => {
+        if (e.button !== 0 || locked) return;
+        press = { x: e.screenX, y: e.screenY };
+      });
+      document.addEventListener("mousemove", (e) => {
+        if (!press || !(e.buttons & 1)) return void (press = null);
+        if (Math.abs(e.screenX - press.x) + Math.abs(e.screenY - press.y) >= 4) {
+          press = null;
+          last = 0;
+          T && T.core.invoke("overlay_drag");
+        }
+      });
+      document.addEventListener("mouseup", () => {
+        if (!press) return;
+        press = null;
+        const now = Date.now();
+        if (now - last <= 400) { last = 0; T && T.core.invoke("show_main"); } else last = now;
+      });
+      document.addEventListener("contextmenu", (e) => e.preventDefault());
+      draw();
+    </script>
+  </body>
+</html>

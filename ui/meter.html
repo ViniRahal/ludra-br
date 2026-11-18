@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Ludra BR - dano</title>
+    <link rel="stylesheet" href="meter.css" />
+    <style>
+      html, body { margin: 0; background: transparent; overflow: hidden; user-select: none; }
+      body { padding: 4px; }
+      .meter { cursor: grab; }
+      body.locked .meter { cursor: default; }
+    </style>
+  </head>
+  <body>
+    <div class="meter"></div>
+    <script src="a2.js"></script>
+    <script src="meterview.js"></script>
+    <script>
+      // The meter over the game: drawn from what the program reads, moved by
+      // dragging while unlocked, a double-click opens the settings.
+      const box = document.querySelector(".meter");
+      const T = window.__TAURI__;
+      let view = null;
+      function draw() {
+        renderMeter(box, view);
+        const r = box.getBoundingClientRect();
+        T && T.core.invoke("overlay_areas", { areas: [{ x: r.left, y: r.top, width: r.width, height: r.height }] });
+      }
+      T && T.event.listen("meter", (e) => {
+        view = e.payload;
+        draw();
+      });
+      T && T.event.listen("meter-look", (e) => box.style.setProperty("--o", String(e.payload.opacity)));
+      T && T.event.listen("locked", (e) => document.body.classList.toggle("locked", !!e.payload));
+      let press = null, last = 0;
+      box.addEventListener("mousedown", (e) => {
+        if (e.button !== 0 || document.body.classList.contains("locked")) return;
+        press = { x: e.screenX, y: e.screenY };
+      });
+      document.addEventListener("mousemove", (e) => {
+        if (!press || !(e.buttons & 1)) return void (press = null);
+        if (Math.abs(e.screenX - press.x) + Math.abs(e.screenY - press.y) >= 4) {
+          press = null;
+          last = 0;
+          T && T.core.invoke("overlay_drag");
+        }
+      });
+      document.addEventListener("mouseup", () => {
+        if (!press) return;
+        press = null;
+        const now = Date.now();
+        if (now - last <= 400) {
+          last = 0;
+          T && T.core.invoke("show_main");
+        } else last = now;
+      });
+      document.addEventListener("contextmenu", (e) => e.preventDefault());
+      T && T.core.invoke("overlay_locked").then((v) => document.body.classList.toggle("locked", !!v));
+      draw();
+    </script>
+  </body>
+</html>

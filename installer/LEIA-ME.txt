@@ -1,0 +1,18 @@
+Ludra BR 0.4.3
+==============
+
+Mostra a vida do boss em % e avisa as mecânicas do Ludra (Ludra, Rahu, Ketu)
+em português, com texto grande na tela e voz, e mede o dano de cada jogador.
+
+Antes de usar
+- Precisa do Npcap (grátis, o mesmo dos medidores de DPS): https://npcap.com
+  Se você já usa um medidor de DPS, já tem.
+- Jogue em "Janela sem bordas" (tela cheia de verdade esconde o texto por cima).
+
+Como funciona
+- Ele só lê, de forma passiva, os dados que o servidor manda para o seu PC,
+  como os medidores de DPS. Não mexe no jogo, não lê a memória do jogo e não
+  envia nada pela internet.
+
+Código aberto (GPL-3.0). Partes da leitura vêm do A2Tools DPS Meter
+(https://github.com/taengu/A2Tools-DPS-Meter), também GPL-3.0.
