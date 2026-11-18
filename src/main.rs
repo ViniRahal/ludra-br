@@ -192,55 +192,59 @@ fn open_npcap() {
 
 const EXE_URL: &str = "https://github.com/ViniRahal/ludra-br/raw/main/download/ludra-br.exe";
 
-/// The new version, in place: the new program is downloaded next to this one
-/// (by Windows' own PowerShell), swapped in (Windows lets a running program
-/// be renamed), and started; this one closes. No installer, settings kept.
-/// Progress and problems go to the page as "update" events.
+/// The new version, as players know it from other programs: it comes down
+/// in the background (by Windows itself, no browser, no installer) next to
+/// this program; then "Reiniciar agora" swaps it in (Windows lets a running
+/// program be renamed) and starts it. Progress goes to the page as "update".
 #[tauri::command]
-fn update_now(app: tauri::AppHandle) {
+fn update_download(app: tauri::AppHandle) {
     std::thread::spawn(move || {
-        let say = |stage: &str, detail: String| {
-            let _ = app.emit("update", serde_json::json!({ "stage": stage, "detail": detail }));
-        };
-        match swap_in_new(&say) {
-            Ok(exe) => {
-                say("restart", String::new());
-                if std::process::Command::new(&exe).spawn().is_ok() {
-                    app.exit(0);
-                } else {
-                    say("error", "A versão nova foi baixada, mas não abriu. Abra o Ludra BR de novo.".into());
-                }
+        let _ = app.emit("update", serde_json::json!({ "stage": "download" }));
+        match download_new() {
+            Ok(()) => {
+                let _ = app.emit("update", serde_json::json!({ "stage": "ready" }));
             }
-            Err(e) => say("error", e),
+            Err(e) => {
+                let _ = app.emit("update", serde_json::json!({ "stage": "error", "detail": e }));
+            }
         }
     });
 }
 
-fn swap_in_new(say: &dyn Fn(&str, String)) -> Result<std::path::PathBuf, String> {
+#[tauri::command]
+fn update_restart(app: tauri::AppHandle) {
+    match swap_in_new() {
+        Ok(exe) => {
+            if std::process::Command::new(&exe).spawn().is_ok() {
+                app.exit(0);
+            } else {
+                let _ = app.emit("update", serde_json::json!({ "stage": "error", "detail": "A versão nova foi instalada, mas não abriu. Abra o Ludra BR de novo." }));
+            }
+        }
+        Err(e) => {
+            let _ = app.emit("update", serde_json::json!({ "stage": "error", "detail": e }));
+        }
+    }
+}
+
+fn program_files() -> Result<(std::path::PathBuf, std::path::PathBuf, std::path::PathBuf), String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let dir = exe.parent().ok_or("pasta do programa não encontrada")?.to_path_buf();
-    let new = dir.join("ludra-br.new.exe");
-    let old = dir.join("ludra-br.old.exe");
+    Ok((exe, dir.join("ludra-br.new.exe"), dir.join("ludra-br.old.exe")))
+}
+
+fn download_new() -> Result<(), String> {
+    let (_, new, _) = program_files()?;
     let _ = std::fs::remove_file(&new);
-    say("download", String::new());
     #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        let script = format!(
-            "$ProgressPreference='SilentlyContinue'; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing -Uri '{EXE_URL}?t={}' -OutFile '{}'",
-            capture::now_ms(),
-            new.display().to_string().replace('\'', "''")
-        );
-        let out = std::process::Command::new("powershell")
-            .args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", &script])
-            .creation_flags(CREATE_NO_WINDOW)
-            .output()
-            .map_err(|e| format!("Não deu para baixar: {e}"))?;
-        if !out.status.success() {
-            let err = String::from_utf8_lossy(&out.stderr);
-            let line = err.lines().find(|l| !l.trim().is_empty()).unwrap_or("erro desconhecido").trim().to_string();
-            return Err(format!("Não deu para baixar: {line}"));
+    unsafe {
+        use windows_sys::Win32::System::Com::Urlmon::URLDownloadToFileW;
+        let wide = |s: &str| s.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
+        let url = wide(&format!("{EXE_URL}?t={}", capture::now_ms()));
+        let path = wide(&new.display().to_string());
+        let hr = URLDownloadToFileW(std::ptr::null_mut(), url.as_ptr(), path.as_ptr(), 0, std::ptr::null_mut());
+        if hr != 0 {
+            return Err(format!("Não deu para baixar (erro {hr:#x}). Confira a internet e tente de novo."));
         }
     }
     let ok = std::fs::read(&new).map(|b| b.len() > 1_000_000 && b.starts_with(b"MZ")).unwrap_or(false);
@@ -248,7 +252,14 @@ fn swap_in_new(say: &dyn Fn(&str, String)) -> Result<std::path::PathBuf, String>
         let _ = std::fs::remove_file(&new);
         return Err("O arquivo baixado veio incompleto. Tente de novo.".into());
     }
-    say("install", String::new());
+    Ok(())
+}
+
+fn swap_in_new() -> Result<std::path::PathBuf, String> {
+    let (exe, new, old) = program_files()?;
+    if !new.exists() {
+        return Err("A versão nova não está baixada. Tente de novo.".into());
+    }
     let _ = std::fs::remove_file(&old);
     std::fs::rename(&exe, &old).map_err(|e| format!("Não deu para trocar o programa: {e}"))?;
     if let Err(e) = std::fs::rename(&new, &exe) {
@@ -256,6 +267,17 @@ fn swap_in_new(say: &dyn Fn(&str, String)) -> Result<std::path::PathBuf, String>
         return Err(format!("Não deu para trocar o programa: {e}"));
     }
     Ok(exe)
+}
+
+/// Versions 0.6.2 to 0.6.5 call this: now the same as downloading and restarting.
+#[tauri::command]
+fn update_now(app: tauri::AppHandle) {
+    std::thread::spawn(move || match download_new() {
+        Ok(()) => update_restart(app),
+        Err(e) => {
+            let _ = app.emit("update", serde_json::json!({ "stage": "error", "detail": e }));
+        }
+    });
 }
 
 /// What an update left behind: the old program, renamed while it ran.
@@ -407,7 +429,7 @@ fn main() {
     let state = Arc::new(App { status: Mutex::new(Status { capture: "starting".into(), ..Default::default() }), locked: Mutex::new(false), areas: Mutex::new(HashMap::new()), focused: Mutex::new(HashSet::new()), hotkey: Mutex::new(String::new()) });
     tauri::Builder::default()
         .manage(state.clone())
-        .invoke_handler(tauri::generate_handler![status, overlay_show, overlay_hide, overlay_lock, overlay_locked, overlay_drag, overlay_areas, show_main, open_npcap, arranging, update_now, hotkey_label])
+        .invoke_handler(tauri::generate_handler![status, overlay_show, overlay_hide, overlay_lock, overlay_locked, overlay_drag, overlay_areas, show_main, open_npcap, arranging, update_now, update_download, update_restart, hotkey_label])
         .setup(move |app| {
             let handle = app.handle().clone();
             for label in OVER_GAME {

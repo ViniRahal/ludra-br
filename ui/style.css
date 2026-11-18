@@ -93,3 +93,4 @@ input[type="color"] { width: 44px; height: 26px; border: 0; background: none; }
 .update .btn { padding: 3px 10px; }
 .mrow input[type="number"]:disabled { background: none; border-color: transparent; color: var(--text); text-align: right; opacity: 1; }
 [data-pane="mec"] input[type="checkbox"]:disabled, [data-pane="mec"] select:disabled { opacity: 0.75; }
+.updateBtn[hidden] { display: none; }

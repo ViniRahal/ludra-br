@@ -150,7 +150,8 @@ for (const r of document.querySelectorAll('.row input[type="range"]')) {
   setTimeout(show, 300);
 }
 
-// A new version on GitHub: a button that downloads and installs it.
+// A new version on GitHub: it comes down by itself in the background, then
+// one button restarts the program on it (as other programs do).
 (function () {
   const T = window.__TAURI__;
   if (!T || !T.app) return;
@@ -160,44 +161,61 @@ for (const r of document.querySelectorAll('.row input[type="range"]')) {
     for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
     return false;
   };
-  let lastCheck = 0;
+  const box = document.querySelector(".update");
+  const text = document.querySelector(".updateText");
+  const btn = document.querySelector(".updateBtn");
+  let latest = null, state = "idle", lastCheck = 0;
+  function show(msg, button) {
+    box.hidden = false;
+    text.textContent = msg;
+    btn.hidden = !button;
+    if (button) {
+      btn.textContent = button;
+      btn.disabled = false;
+    }
+  }
+  function fetchNew() {
+    state = "downloading";
+    show(`Baixando a versão ${latest}…`);
+    T.core.invoke("update_download").catch(() => {});
+  }
   async function check() {
     lastCheck = Date.now();
+    if (state !== "idle") return;
     try {
       const mine = await T.app.getVersion();
       const r = await fetch(`https://raw.githubusercontent.com/ViniRahal/ludra-br/main/download/versao.txt?t=${Date.now()}`, { cache: "no-store" });
       if (!r.ok) return;
       const last = (await r.text()).trim();
       if (!/^\d+\.\d+\.\d+$/.test(last) || !newer(last, mine)) return;
-      const box = document.querySelector(".update");
-      box.querySelector(".updateText").textContent = `Nova versão ${last} disponível`;
-      box.hidden = false;
+      latest = last;
+      fetchNew();
     } catch {}
   }
-  const btn = document.querySelector(".updateBtn");
-  const text = document.querySelector(".updateText");
   btn.addEventListener("click", () => {
-    btn.disabled = true;
-    btn.textContent = "Atualizando…";
-    T.core.invoke("update_now").catch((err) => {
-      btn.disabled = false;
-      btn.textContent = "Tentar de novo";
-      text.textContent = String(err);
-    });
+    if (state === "ready") {
+      btn.disabled = true;
+      btn.textContent = "Reiniciando…";
+      T.core.invoke("update_restart").catch(() => {});
+    } else if (state === "error") fetchNew();
   });
   T.event.listen("update", (e) => {
     const { stage, detail } = e.payload || {};
-    const words = { download: "Baixando a versão nova…", install: "Trocando os arquivos…", restart: "Pronto. Reabrindo…" };
-    if (stage === "error") {
-      btn.disabled = false;
-      btn.textContent = "Tentar de novo";
-      text.textContent = detail || "Não deu para atualizar.";
-    } else if (words[stage]) text.textContent = words[stage];
+    if (stage === "ready") {
+      state = "ready";
+      show(`Versão ${latest || "nova"} pronta`, "Reiniciar agora");
+    } else if (stage === "error") {
+      state = "error";
+      show(detail || "Não deu para atualizar.", "Tentar de novo");
+    }
   });
   check();
   setInterval(check, 5 * 60 * 1000);
-  window.addEventListener("focus", () => { if (Date.now() - lastCheck > 60000) check(); });
+  window.addEventListener("focus", () => {
+    if (Date.now() - lastCheck > 60000) check();
+  });
 })();
+
 // The key that opens this window, as it was taken.
 (function () {
   const T = window.__TAURI__;
