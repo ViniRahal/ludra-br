@@ -158,8 +158,12 @@ window.__TAURI__?.event.listen("meter", (e) => {
   lastStagger = key ? st ?? null : null;
   // The aggro: when the boss turns from the one it was hitting to someone
   // else (the tail swipe comes then), a bell. At most once a second.
+  // Only Ludra, and only before the first Bingo: after it he stays at the
+  // arena's edge facing the group, with no tail swipe.
+  const bingoSeen = key === "ludra" && engine.getLog().some((x) => x.boss === "ludra" && x.what && x.what.skill === 1803040 && x.at >= (live.pullAt || 0));
+  const swipes = key === "ludra" && !bingoSeen && live.pct != null && live.pct > 50;
   const ag = key && live.cur > 0 && v.boss ? v.boss.aggro || "" : "";
-  if (key && ag && lastAggro && ag !== lastAggro && Date.now() - lastBell > 1000 && prefs.enabled && !prefs.off[`${key}:aggro`]) {
+  if (swipes && ag && lastAggro && ag !== lastAggro && Date.now() - lastBell > 1000 && prefs.enabled && !prefs.off[`${key}:aggro`]) {
     lastBell = Date.now();
     bell();
   }
