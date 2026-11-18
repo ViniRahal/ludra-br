@@ -157,9 +157,9 @@ window.__TAURI__?.event.listen("meter", (e) => {
   }
   lastStagger = key ? st ?? null : null;
   // The aggro: when the boss turns from the one it was hitting to someone
-  // else (the tail swipe comes then), a bell. At most once every 5 s.
+  // else (the tail swipe comes then), a bell. At most once a second.
   const ag = key && live.cur > 0 && v.boss ? v.boss.aggro || "" : "";
-  if (key && ag && lastAggro && ag !== lastAggro && Date.now() - lastBell > 5000 && prefs.enabled && !prefs.off[`${key}:aggro`]) {
+  if (key && ag && lastAggro && ag !== lastAggro && Date.now() - lastBell > 1000 && prefs.enabled && !prefs.off[`${key}:aggro`]) {
     lastBell = Date.now();
     bell();
   }
