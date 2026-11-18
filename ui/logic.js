@@ -114,6 +114,7 @@
         marks: thresholds(boss.key).filter((t) => !boss.fired.has(t.id)).map((t) => t.pct),
         cur: boss.cur,
         pullAt: boss.pullAt || 0,
+        upcoming: upcoming(),
         dps: Math.round(dps()),
         enrage: enrageSecs(boss.key),
       });
@@ -246,7 +247,7 @@
     }
 
     function logIt(what, at) {
-      const entry = { at, boss: boss?.key || null, what, pct: boss && boss.max > 0 ? Math.round(boss.pct * 10) / 10 : null };
+      const entry = { at, boss: boss?.key || null, what, pct: boss && boss.max > 0 ? Math.round(boss.pct * 10) / 10 : null, since: boss && boss.pullAt ? at - boss.pullAt : null };
       log.push(entry);
       if (log.length > MAX_LOG) log = log.slice(-MAX_LOG);
       hooks.saveLog?.(log);
@@ -357,8 +358,68 @@
       return (key && bosses[key] && bosses[key].enrage) || 0;
     }
 
+    // ---- the next mechanic by time -----------------------------------------
+    // From the log of past fights: how long after the pull each skill first
+    // comes, and how long between two of the same. The median of the last
+    // ones; data.js can give its own (`first`, `every`, in seconds).
+    const GAP_MIN_MS = 8000, GAP_MAX_MS = 240000, MIN_SAMPLES = 2;
+    let timesCache = { n: -1, key: null, v: {} };
+    function median(a) {
+      const v = a.slice(-8).sort((x, y) => x - y);
+      return v.length ? v[Math.floor(v.length / 2)] : 0;
+    }
+    function timesOf(key) {
+      if (timesCache.n === log.length && timesCache.key === key) return timesCache.v;
+      const out = {};
+      const last = {};
+      for (const e of log) {
+        if (e.boss !== key || !e.what || !e.what.skill || e.what.title?.startsWith("skill ")) continue;
+        const k = e.what.skill;
+        const o = (out[k] = out[k] || { first: [], gaps: [] });
+        if (e.what.n === 1 && e.since > 0 && e.since < 900000) o.first.push(e.since);
+        const p = last[k];
+        if (p && e.what.n === p.what.n + 1 && e.at - p.at >= GAP_MIN_MS && e.at - p.at <= GAP_MAX_MS) o.gaps.push(e.at - p.at);
+        last[k] = e;
+      }
+      const v = {};
+      for (const c of (bosses[key] && bosses[key].casts) || []) {
+        const o = out[c.skill] || { first: [], gaps: [] };
+        const first = o.first.length >= MIN_SAMPLES ? median(o.first) : c.first ? c.first * 1000 : 0;
+        const every = o.gaps.length >= MIN_SAMPLES ? median(o.gaps) : c.every ? c.every * 1000 : 0;
+        const sure = o.gaps.length >= 3 || o.first.length >= 3 || !!(c.first || c.every);
+        if (first || every) v[c.skill] = { first, every, sure };
+      }
+      timesCache = { n: log.length, key, v };
+      return v;
+    }
+    // The soonest mechanic due by time: { title, at, sure }.
+    function upcoming() {
+      if (!boss || !boss.key || !boss.pullAt || boss.cur <= 0) return null;
+      const t = now();
+      const times = timesOf(boss.key);
+      let best = null;
+      for (const c of bosses[boss.key].casts) {
+        const m = times[c.skill];
+        if (!m || prefs.off[`${boss.key}:cast:${c.skill}`]) continue;
+        const lastAt = boss.seen[`t:${c.skill}`];
+        const due = lastAt ? (m.every ? lastAt + m.every : 0) : m.first ? boss.pullAt + m.first : 0;
+        if (!due || due < t - 3000) continue; // late by more than 3 s: not known when
+        if (!best || due < best.at) best = { title: c.title, at: due, sure: m.sure, skill: c.skill };
+      }
+      return best;
+    }
+
     // Once a second: the enrage warnings, and the timers refreshed.
     function tick() {
+      const up = upcoming();
+      if (up && up.sure && prefs.castCalls && Number(prefs.prewarn) > 0) {
+        const k = `soon:${up.skill}:${up.at}`;
+        const left = (up.at - now()) / 1000;
+        if (left <= 5 && left > 0 && !boss.fired.has(k)) {
+          boss.fired.add(k);
+          hooks.call({ kind: "pre", text: `Em breve: ${up.title}`, sub: "", say: `Prepara: ${up.title.replace(/!/g, "")}` });
+        }
+      }
       if (!boss || !boss.pullAt || boss.cur <= 0) return;
       const secs = enrageSecs(boss.key);
       if (!(secs > 0)) return;

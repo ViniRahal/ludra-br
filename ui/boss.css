@@ -87,3 +87,4 @@ body.locked .panel { cursor: default; }
 .bNum small { font-size: 10px; font-weight: 600; opacity: 0.75; text-transform: uppercase; letter-spacing: 0.04em; }
 .panel.t-minimo .bNum { min-width: 70px; }
 .panel.t-minimo .bNum small { font-size: 9px; }
+.bNext.soon { color: #ff6b62; font-weight: 700; }

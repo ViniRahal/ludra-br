@@ -106,7 +106,11 @@
       a.title = "Com o aggro: em quem o boss está batendo";
       bottom.append(a);
     } else bottom.append(el("span", "bAggro none", "aggro: —"));
-    if (live && live.next) bottom.append(el("span", "bNext", `próxima: ${live.next.title} em ${String(live.next.pct).replace(".", ",")}%`));
+    // The next mechanic: by time when one is due within a minute, else by HP.
+    const up = live && live.upcoming;
+    const upIn = up ? Math.max(0, (up.at - now) / 1000) : Infinity;
+    if (upIn <= 60) bottom.append(el("span", `bNext${upIn <= 5 ? " soon" : ""}`, `próxima: ${up.title.replace(/!/g, "")} em ${clock(upIn)}`));
+    else if (live && live.next) bottom.append(el("span", "bNext", `próxima: ${live.next.title} em ${String(live.next.pct).replace(".", ",")}%`));
     right.append(bottom);
     box.append(left, right);
   };
