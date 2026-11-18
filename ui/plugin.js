@@ -465,6 +465,8 @@ if (synth) {
 (async () => {
   const stored = await a2.storage.get("prefs").catch(() => null);
   if (stored && typeof stored === "object") prefs = { ...DEFAULTS, ...stored };
+  // The mechanics come set up: the same calls, at the same %, for everyone.
+  for (const k of ["castCalls", "hpCalls", "prewarn", "thresholds", "off", "enrage"]) prefs[k] = DEFAULTS[k];
   const log = await a2.storage.get("log").catch(() => null);
   engine.setLog(log);
   engine.setPrefs(enginePrefs());
@@ -472,6 +474,7 @@ if (synth) {
   showPrefs();
   loadVoices();
   renderBosses();
+  for (const el of document.querySelectorAll('[data-pane="mec"] input, [data-pane="mec"] select')) el.disabled = true;
   renderLive();
   renderLog();
   placeWidget();

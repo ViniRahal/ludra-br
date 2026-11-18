@@ -41,6 +41,13 @@ struct App {
     /// The program's windows that have the focus: while one has it, the
     /// player is arranging, and the empty boxes show where things will go.
     focused: Mutex<HashSet<String>>,
+    /// The key that opens this window ("Alt+E", or another if that one is taken).
+    hotkey: Mutex<String>,
+}
+
+#[tauri::command]
+fn hotkey_label(state: tauri::State<'_, Arc<App>>) -> String {
+    state.hotkey.lock().clone()
 }
 
 fn arranging_now(state: &App) -> bool {
@@ -271,15 +278,23 @@ fn hotkey(app: tauri::AppHandle) {
     std::thread::spawn(move || unsafe {
         use windows_sys::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, MOD_ALT, MOD_NOREPEAT};
         use windows_sys::Win32::UI::WindowsAndMessaging::{GetMessageW, MSG, WM_HOTKEY};
-        // Right after an update the old copy may still hold the key a moment.
-        let mut tries = 0;
-        while RegisterHotKey(std::ptr::null_mut(), 1, MOD_ALT | MOD_NOREPEAT, 'E' as u32) == 0 {
-            tries += 1;
-            if tries > 20 {
-                return;
+        use windows_sys::Win32::UI::Input::KeyboardAndMouse::{MOD_CONTROL, MOD_SHIFT};
+        // Alt+E; right after an update the old copy may still hold it a
+        // moment. Another program holding it for good (Questlog uses Alt+E
+        // too): then Alt+Shift+E, then Ctrl+Alt+E. The page shows which.
+        let mut got = None;
+        'find: for (mods, label, tries) in [(MOD_ALT, "Alt+E", 16), (MOD_ALT | MOD_SHIFT, "Alt+Shift+E", 1), (MOD_ALT | MOD_CONTROL, "Ctrl+Alt+E", 1)] {
+            for _ in 0..tries {
+                if RegisterHotKey(std::ptr::null_mut(), 1, mods | MOD_NOREPEAT, 'E' as u32) != 0 {
+                    got = Some(label);
+                    break 'find;
+                }
+                std::thread::sleep(Duration::from_millis(500));
             }
-            std::thread::sleep(Duration::from_millis(500));
         }
+        let Some(label) = got else { return };
+        *app.state::<Arc<App>>().hotkey.lock() = label.to_string();
+        let _ = app.emit("hotkey", label);
         let mut msg: MSG = std::mem::zeroed();
         while GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0) > 0 {
             if msg.message == WM_HOTKEY {
@@ -389,10 +404,10 @@ fn start_capture(app: tauri::AppHandle, state: Arc<App>) {
 }
 
 fn main() {
-    let state = Arc::new(App { status: Mutex::new(Status { capture: "starting".into(), ..Default::default() }), locked: Mutex::new(false), areas: Mutex::new(HashMap::new()), focused: Mutex::new(HashSet::new()) });
+    let state = Arc::new(App { status: Mutex::new(Status { capture: "starting".into(), ..Default::default() }), locked: Mutex::new(false), areas: Mutex::new(HashMap::new()), focused: Mutex::new(HashSet::new()), hotkey: Mutex::new(String::new()) });
     tauri::Builder::default()
         .manage(state.clone())
-        .invoke_handler(tauri::generate_handler![status, overlay_show, overlay_hide, overlay_lock, overlay_locked, overlay_drag, overlay_areas, show_main, open_npcap, arranging, update_now])
+        .invoke_handler(tauri::generate_handler![status, overlay_show, overlay_hide, overlay_lock, overlay_locked, overlay_drag, overlay_areas, show_main, open_npcap, arranging, update_now, hotkey_label])
         .setup(move |app| {
             let handle = app.handle().clone();
             for label in OVER_GAME {

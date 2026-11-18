@@ -91,3 +91,5 @@ input[type="color"] { width: 44px; height: 26px; border: 0; background: none; }
 .update { display: inline-flex; align-items: center; gap: 10px; margin-right: auto; padding: 4px 6px 4px 12px; border-radius: 8px; background: rgba(78, 163, 245, 0.12); border: 1px solid rgba(78, 163, 245, 0.4); font-size: 13px; }
 .update[hidden] { display: none; }
 .update .btn { padding: 3px 10px; }
+.mrow input[type="number"]:disabled { background: none; border-color: transparent; color: var(--text); text-align: right; opacity: 1; }
+[data-pane="mec"] input[type="checkbox"]:disabled, [data-pane="mec"] select:disabled { opacity: 0.75; }

@@ -35,7 +35,7 @@
   // The bottom line: your ping and the key that opens the settings.
   function foot(box, v) {
     const f = el("div", "mFoot");
-    f.append(el("span", "mKey", "Alt+E opções"));
+    f.append(el("span", "mKey", `${window.hotkeyLabel || "Alt+E"} opções`));
     const p = v && v.ping;
     const ping = el("span", `mPing${p == null ? "" : p < 80 ? " good" : p < 150 ? " mid" : " bad"}`, p == null ? "— ms" : `${p} ms`);
     f.append(ping);

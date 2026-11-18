@@ -1,6 +1,6 @@
 [package]
 name = "ludra-br"
-version = "0.6.5"
+version = "0.6.6"
 edition = "2021"
 license = "GPL-3.0-only"
 description = "Ludra BR: vida do boss e avisos de mecânica do Ludra em português"

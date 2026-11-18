@@ -160,7 +160,9 @@ for (const r of document.querySelectorAll('.row input[type="range"]')) {
     for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
     return false;
   };
+  let lastCheck = 0;
   async function check() {
+    lastCheck = Date.now();
     try {
       const mine = await T.app.getVersion();
       const r = await fetch(`https://raw.githubusercontent.com/ViniRahal/ludra-br/main/download/versao.txt?t=${Date.now()}`, { cache: "no-store" });
@@ -193,5 +195,14 @@ for (const r of document.querySelectorAll('.row input[type="range"]')) {
     } else if (words[stage]) text.textContent = words[stage];
   });
   check();
-  setInterval(check, 30 * 60 * 1000);
+  setInterval(check, 5 * 60 * 1000);
+  window.addEventListener("focus", () => { if (Date.now() - lastCheck > 60000) check(); });
+})();
+// The key that opens this window, as it was taken.
+(function () {
+  const T = window.__TAURI__;
+  if (!T) return;
+  const show = (k) => k && document.querySelectorAll(".hk").forEach((e) => (e.textContent = k));
+  T.core.invoke("hotkey_label").then(show).catch(() => {});
+  T.event.listen("hotkey", (e) => show(e.payload));
 })();

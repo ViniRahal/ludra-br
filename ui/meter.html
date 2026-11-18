@@ -22,6 +22,10 @@
       const box = document.querySelector(".meter");
       const T = window.__TAURI__;
       let view = null, alpha = 1;
+      if (T) {
+        T.core.invoke("hotkey_label").then((k) => { if (k) { window.hotkeyLabel = k; draw(); } }).catch(() => {});
+        T.event.listen("hotkey", (e) => { window.hotkeyLabel = e.payload; draw(); });
+      }
       function draw() {
         renderMeter(box, view);
         // Out of a fight it fades, to see the game behind it.

@@ -64,7 +64,9 @@
         <div class="card">
           <div class="cardHead">Avisos de mecânica</div>
           <label class="switch"><span>Mostrar na tela</span><input type="checkbox" class="widget" /></label>
-          <p class="note">Tamanho, cores e transparência em "Aparência e voz".</p>
+          <label class="row"><span>Tamanho</span><input type="range" class="size" min="24" max="100" step="4" /></label>
+          <label class="row"><span>Fundo</span><input type="range" class="bgOpacity" min="0" max="100" step="5" /></label>
+          <p class="note">Cores e voz em "Aparência e voz".</p>
         </div>
         <div class="card">
           <div class="cardHead">Painel do boss</div>
@@ -83,7 +85,7 @@
         <div class="card">
           <div class="cardHead">Controles</div>
           <label class="switch"><span>Travar no lugar (cliques passam para o jogo)</span><input type="checkbox" class="lock" /></label>
-          <p class="note">Destravado, arraste cada caixa. Clique duas vezes numa caixa para abrir esta janela.</p>
+          <p class="note">Aperte <b class="hk">Alt+E</b> no jogo para abrir esta janela: com ela aberta, as caixas aparecem para você arrastar. Aperte de novo para voltar ao jogo. Se o Questlog estiver aberto, ele usa o Alt+E; aí o Ludra BR usa Alt+Shift+E (aparece embaixo do medidor).</p>
         </div>
       </div>
     </section>
@@ -96,10 +98,11 @@
 
     <section class="pane" data-pane="mec" hidden>
       <h2>Mecânicas</h2>
+      <p class="note">Já vem configurado e é igual para todo mundo. Quando a gente confirmar uma mecânica nova, ela chega pela atualização.</p>
       <label class="switch"><span>Avisar quando o boss usa a mecânica</span><input type="checkbox" class="castCalls" /></label>
       <p class="note sub">Vem do próprio jogo: quando o boss começa a mecânica. Sempre certo.</p>
       <label class="switch"><span>Avisar pela % de vida</span><input type="checkbox" class="hpCalls" /></label>
-      <p class="note sub">Avisa na % dos guias. Ajuste em "Registro" depois de uma luta.</p>
+      <p class="note sub">Avisa na % da vida do boss.</p>
       <label class="row"><span>Aviso antes (em %)</span>
         <select class="prewarn">
           <option value="0">Não avisar antes</option>
@@ -120,9 +123,9 @@
 
     <section class="pane" data-pane="log" hidden>
       <h2>Registro de mecânicas</h2>
-      <p class="note">Em que % de vida cada mecânica realmente veio, nas suas lutas. Use isso para acertar os avisos por %.</p>
+      <p class="note">Em que % de vida cada mecânica veio nas suas lutas. Clique em "Copiar" e mande para a gente ajustar os avisos.</p>
       <div class="inline">
-        <button type="button" class="btn learn">Ajustar % pelo registro</button>
+        <button type="button" class="btn learn" hidden>Ajustar % pelo registro</button>
         <button type="button" class="btn copy">Copiar</button>
         <button type="button" class="btn clearLog">Limpar</button>
       </div>
@@ -136,17 +139,8 @@
 
     <section class="pane" data-pane="look" hidden>
       <h2>Aparência e voz</h2>
-      <label class="row"><span>Tamanho do texto</span>
-        <select class="size">
-          <option value="32">Pequeno</option>
-          <option value="44">Médio</option>
-          <option value="60">Grande</option>
-          <option value="80">Enorme</option>
-        </select>
-      </label>
       <label class="row"><span>Cor do texto</span><input type="color" class="fg" /></label>
       <label class="row"><span>Fundo</span><input type="color" class="bg" /></label>
-      <label class="row"><span>Transparência do fundo</span><input type="range" class="bgOpacity" min="0" max="100" step="5" /></label>
       <label class="switch"><span>Mostrar a vida do boss na tela</span><input type="checkbox" class="showHp" /></label>
       <hr />
       <label class="switch"><span>Falar os avisos</span><input type="checkbox" class="speak" /></label>
