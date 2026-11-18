@@ -79,7 +79,7 @@ pub const BOSS_CODES: &[u32] = &[
 ];
 
 pub fn ours(id: u32) -> bool {
-    (1_801_000..=1_803_999).contains(&id) || (18_010_000..=18_039_999).contains(&id)
+    id == 10_000_008 || (1_801_000..=1_803_999).contains(&id) || (18_010_000..=18_039_999).contains(&id)
 }
 
 #[derive(Default)]

@@ -4,7 +4,7 @@ Avisos das mecânicas do **Ludra** (Abyssal Forge) (AION 2) em português, com t
 
 ## Baixar
 
-**[Baixar o instalador para Windows](https://github.com/ViniRahal/ludra-br/raw/main/download/LudraBR-Instalador.exe)** (versão 0.5.1, cerca de 1,6 MB)
+**[Baixar o instalador para Windows](https://github.com/ViniRahal/ludra-br/raw/main/download/LudraBR-Instalador.exe)** (versão 0.5.2, cerca de 1,6 MB)
 
 1. Instale o **Npcap**: https://npcap.com/#download. Quem já usa Questlog, A2Tools ou outro medidor de DPS já tem.
 2. Abra o instalador. Se o Windows mostrar "O Windows protegeu o computador", clique em **Mais informações** e depois em **Executar assim mesmo**. O aviso aparece porque o programa ainda não tem assinatura digital.
@@ -20,7 +20,7 @@ Avisos das mecânicas do **Ludra** (Abyssal Forge) (AION 2) em português, com t
 
 | Boss | Pela % de vida | Quando o boss usa |
 |---|---|---|
-| Ludra da Eternidade | Orbes 90%, Arena diminui 85%, Bingo 1 50%, Zikel 45%, Cores 33%, Bingo 2 25%, Círculos 10%; enrage 10 min | Bingo, Círculos, Orbes |
+| Ludra da Eternidade | Orbes 90%, Arena diminui 85%, Bingo 1 50%, Zikel 45%, Cores 33%, Bingo 2 25%, Círculos 10%; enrage 10 min | Bingo, Círculos, Orbes, Bombas de raio (a confirmar) |
 | Rahu da Disjunção | Rahu no centro 75%, Arena em 4 50%, Hora de comer 25% | Roda do Tormento, Hora de comer |
 | Asas Abissais Ketu | Olhos 50% | Olhos, Pedras da Alma, Esconde-esconde |
 

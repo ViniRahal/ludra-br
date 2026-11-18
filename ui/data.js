@@ -24,7 +24,8 @@ window.LUDRA_BR = {
       // Terminator Bargott 1803810, Nuakum 1802020, Veltiras 1802220, Talisra
       // of the Void up to 1801780, as Boss Callouts has them.)
       skills: [[1803000, 1803399], [18030000, 18033999]],
-      buffs: [],
+      // 10000008: "A strength that has withstood eternity!" (Boss Callouts), Ludra's own buff.
+      buffs: [10000008],
       // Global (NA/EU/SA) numbers first: AionFlex's Ludra guide (global
       // Normal, 14/11/2026) gives orbs 90%, arena 85%, Bingo 60%, Zikel 45%,
       // Colors 33%. Bingo 2 at 25% and the circles at 10% come from the
@@ -43,6 +44,13 @@ window.LUDRA_BR = {
         { skill: 1803030, title: "CÍRCULOS!", sub: "Entre no da sua cor no último segundo. Um por círculo.", secs: 5 },
         { skill: 1803200, title: "ORBES", sub: "Azul: todos pegam. Vermelho: só com bloqueio ou imunidade." },
         { skill: 1803360, title: "ORBES", sub: "Azul: todos pegam. Vermelho: só com bloqueio ou imunidade." },
+        // "Raio Estrondoso Violeta" ("O poder deve ser usado assim."): taken for
+        // the global's bombs, three lightning bombs with tornados (Vinicius, 18/11).
+        // Not confirmed: the log shows when it really comes.
+        { skill: 1803010, title: "BOMBAS DE RAIO", sub: "Três bombas de raio e tornados. Longe das bombas, desviem dos tornados." },
+      ],
+      buffCalls: [
+        { abnormal: 10000008, title: "LUDRA FORTALECIDO", sub: "Ele ganhou o poder da eternidade. Defesas prontas." },
       ],
     },
     rahu: {
