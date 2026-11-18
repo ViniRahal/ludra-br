@@ -21,9 +21,13 @@
       // dragging while unlocked, a double-click opens the settings.
       const box = document.querySelector(".meter");
       const T = window.__TAURI__;
-      let view = null;
+      let view = null, alpha = 1;
       function draw() {
         renderMeter(box, view);
+        // Out of a fight it fades, to see the game behind it.
+        const fight = !!(view && view.rows && view.rows.length);
+        box.style.opacity = String(fight ? alpha : alpha * 0.5);
+        box.style.transition = "opacity 0.4s";
         const r = box.getBoundingClientRect();
         T && T.core.invoke("overlay_areas", { areas: [{ x: r.left, y: r.top, width: r.width, height: r.height }] });
       }
@@ -36,7 +40,7 @@
         box.style.setProperty("--o", String(p.opacity));
         box.style.transformOrigin = "0 0";
         box.style.transform = p.scale && p.scale !== 1 ? `scale(${p.scale})` : "";
-        box.style.opacity = String(p.alpha ?? 1);
+        alpha = p.alpha ?? 1;
         draw();
       });
       T && T.event.listen("locked", (e) => { document.body.classList.toggle("locked", !!e.payload); draw(); });
