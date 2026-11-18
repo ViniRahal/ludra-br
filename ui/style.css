@@ -105,3 +105,8 @@ input[type="color"] { width: 44px; height: 26px; border: 0; background: none; }
 .editorFoot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
 .snapLab { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--dim); }
 .snapLab input { width: 16px; height: 16px; }
+.obox .grip { position: absolute; right: -1px; bottom: -1px; width: 10px; height: 10px; background: var(--c); border-radius: 2px; cursor: nwse-resize; opacity: 0; transition: opacity 0.15s; }
+.obox .grip.tl { left: -1px; top: -1px; right: auto; bottom: auto; }
+.obox .grip.tr { top: -1px; bottom: auto; cursor: nesw-resize; }
+.obox .grip.bl { left: -1px; right: auto; cursor: nesw-resize; }
+.obox:hover .grip, .obox.dragging .grip { opacity: 1; }

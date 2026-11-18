@@ -20,9 +20,9 @@
         e = els[b.label] = document.createElement("div");
         e.className = "obox";
         e.style.setProperty("--c", COLORS[b.label] || "#aaa");
-        e.innerHTML = `<b></b><small></small>`;
+        e.innerHTML = `<b></b><small></small><i class="grip"></i><i class="grip tl"></i><i class="grip tr"></i><i class="grip bl"></i>`;
         e.querySelector("b").textContent = NAMES[b.label] || b.label;
-        e.addEventListener("pointerdown", (ev) => start(ev, b.label));
+        e.addEventListener("pointerdown", (ev) => (ev.target.classList.contains("grip") ? startSize(ev, b.label) : start(ev, b.label)));
         screen.append(e);
       }
       if (drag && drag.label === b.label) continue;
@@ -42,6 +42,44 @@
     } catch {}
   }
   let last = 0;
+  // A corner pulled: the box grows or shrinks, as a picture does. Its size
+  // is the same setting as the "Tamanho" slider below, which moves with it.
+  const SLIDER = { overlay: ".size", boss: ".bossScale", meter: ".meterScale" };
+  let size = null;
+  function startSize(ev, label) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const input = document.querySelector(SLIDER[label]);
+    if (!input) return;
+    const e = els[label];
+    e.setPointerCapture(ev.pointerId);
+    size = { label, e, input, sx: ev.clientX, sy: ev.clientY, w: e.offsetWidth, h: e.offsetHeight, v: Number(input.value), corner: ev.target.className };
+    drag = { label, e, b: {}, fake: true };
+    e.classList.add("dragging");
+  }
+  window.addEventListener("pointermove", (ev) => {
+    if (!size) return;
+    const left = /tl|bl/.test(size.corner), up = /tl|tr/.test(size.corner);
+    const dw = (ev.clientX - size.sx) * (left ? -1 : 1);
+    const dh = (ev.clientY - size.sy) * (up ? -1 : 1);
+    const r = Math.max((size.w + dw) / size.w, (size.h + dh) / size.h);
+    const i = size.input;
+    const min = Number(i.min), max = Number(i.max), step = Number(i.step) || 1;
+    const v = Math.max(min, Math.min(max, Math.round((size.v * r) / step) * step));
+    size.e.style.width = `${size.w * (v / size.v)}px`;
+    size.e.style.height = `${size.h * (v / size.v)}px`;
+    if (String(v) !== i.value) {
+      i.value = String(v);
+      i.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  });
+  window.addEventListener("pointerup", () => {
+    if (!size) return;
+    size.e.classList.remove("dragging");
+    size = null;
+    drag = null;
+    setTimeout(load, 400);
+  });
   function start(ev, label) {
     ev.preventDefault();
     const b = layout.boxes.find((x) => x.label === label);
@@ -51,7 +89,7 @@
     e.classList.add("dragging");
   }
   window.addEventListener("pointermove", (ev) => {
-    if (!drag) return;
+    if (!drag || drag.fake) return;
     const m = layout.monitor;
     const k = screen.clientWidth / m.w;
     let left = drag.left + ev.clientX - drag.sx;
@@ -78,7 +116,7 @@
     T && T.core.invoke("overlay_move", { label: drag.label, x, y }).catch(() => {});
   }
   window.addEventListener("pointerup", () => {
-    if (!drag) return;
+    if (!drag || drag.fake) return;
     const m = layout.monitor;
     move(parseFloat(drag.e.style.left), parseFloat(drag.e.style.top), screen.clientWidth / m.w, m);
     drag.e.classList.remove("dragging");
