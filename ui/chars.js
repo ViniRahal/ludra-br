@@ -149,3 +149,34 @@ for (const r of document.querySelectorAll('.row input[type="range"]')) {
   r.addEventListener("input", show);
   setTimeout(show, 300);
 }
+
+// A new version on GitHub: a button that downloads and installs it.
+(function () {
+  const T = window.__TAURI__;
+  if (!T || !T.app) return;
+  const num = (v) => String(v).trim().split(".").map((x) => parseInt(x, 10) || 0);
+  const newer = (a, b) => {
+    const x = num(a), y = num(b);
+    for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+    return false;
+  };
+  async function check() {
+    try {
+      const mine = await T.app.getVersion();
+      const r = await fetch(`https://raw.githubusercontent.com/ViniRahal/ludra-br/main/download/versao.txt?t=${Date.now()}`, { cache: "no-store" });
+      if (!r.ok) return;
+      const last = (await r.text()).trim();
+      if (!/^\d+\.\d+\.\d+$/.test(last) || !newer(last, mine)) return;
+      const box = document.querySelector(".update");
+      box.querySelector(".updateText").textContent = `Nova versão ${last} disponível`;
+      box.hidden = false;
+    } catch {}
+  }
+  document.querySelector(".updateBtn").addEventListener("click", (e) => {
+    e.target.disabled = true;
+    e.target.textContent = "Baixando…";
+    T.core.invoke("update_now").catch(() => {});
+  });
+  check();
+  setInterval(check, 30 * 60 * 1000);
+})();

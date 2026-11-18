@@ -183,6 +183,33 @@ fn open_npcap() {
     }
 }
 
+/// The new version: downloaded by Windows' own PowerShell into the temp
+/// folder and its installer started, the program closing so it can be replaced.
+#[tauri::command]
+fn update_now(app: tauri::AppHandle) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        let script = "$f = Join-Path $env:TEMP 'LudraBR-Instalador.exe'; \
+            [Net.ServicePointManager]::SecurityProtocol = 'Tls12'; \
+            Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/ViniRahal/ludra-br/raw/main/download/LudraBR-Instalador.exe' -OutFile $f; \
+            Start-Process $f";
+        let ok = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script])
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn()
+            .is_ok();
+        if ok {
+            app.exit(0);
+        } else {
+            let _ = std::process::Command::new("explorer").arg("https://github.com/ViniRahal/ludra-br/raw/main/download/LudraBR-Instalador.exe").spawn();
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = app;
+}
+
 fn start_capture(app: tauri::AppHandle, state: Arc<App>) {
     let (tx, rx) = sync_channel::<flows::Segment>(50_000);
     match capture::start(tx) {
@@ -275,7 +302,7 @@ fn main() {
     let state = Arc::new(App { status: Mutex::new(Status { capture: "starting".into(), ..Default::default() }), locked: Mutex::new(false), areas: Mutex::new(HashMap::new()), focused: Mutex::new(HashSet::new()) });
     tauri::Builder::default()
         .manage(state.clone())
-        .invoke_handler(tauri::generate_handler![status, overlay_show, overlay_hide, overlay_lock, overlay_locked, overlay_drag, overlay_areas, show_main, open_npcap, arranging])
+        .invoke_handler(tauri::generate_handler![status, overlay_show, overlay_hide, overlay_lock, overlay_locked, overlay_drag, overlay_areas, show_main, open_npcap, arranging, update_now])
         .setup(move |app| {
             let handle = app.handle().clone();
             for label in OVER_GAME {
