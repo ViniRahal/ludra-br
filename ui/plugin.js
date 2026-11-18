@@ -493,7 +493,7 @@ let sentUpTo = Number(localStorage.getItem("ludra:sentUpTo")) || 0;
 async function sendLog(auto) {
   const lines = logLines(auto ? sentUpTo : 0);
   if (!lines.length) {
-    if (!auto) $(".learnNote").textContent = "Nada novo no registro para enviar.";
+    if (!auto) $(".learnNote").textContent = "Ainda não há luta no registro. Depois de uma luta no Ludra (Rahu, Ketu ou Ludra), é só enviar.";
     return;
   }
   const btn = $(".sendLog");

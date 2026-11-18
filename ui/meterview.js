@@ -50,13 +50,10 @@
     const top = el("div", "mTop");
     if (!rows.length) {
       // Out of a fight: your group, as the game's party list has it.
-      top.append(el("span", "mBrand", "LUDRA BR"), el("span", "mTab", party.length ? `Grupo · ${party.length}` : "Solo"));
+      top.append(el("span", "mBrand", "LUDRA BR"));
+      if (party.length > 1) top.append(el("span", "mTab", `Grupo · ${party.length}`));
       head.append(top);
       const list = party.length ? party : me && me.name ? [{ ...me, me: true }] : [];
-      const cps = list.map((m) => m.cp).filter((c) => c > 0);
-      const total = el("div", "mTotal");
-      total.append(el("b", "", cps.length ? short(cps.reduce((a, b) => a + b, 0) / cps.length) : "—"), el("span", "", " CP médio"));
-      head.append(total);
       box.append(head);
       if (!list.length) box.append(el("div", "mEmpty", opts.empty || "Personagem não identificado: dê um TP"));
       else {
