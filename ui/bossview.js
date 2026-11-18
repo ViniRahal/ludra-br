@@ -49,6 +49,7 @@
     const right = el("div", "bRight");
     const top = el("div", "bTop");
     top.append(el("span", "bName", name));
+    if (live && live.diff) top.append(el("span", `bDiff ${live.diff}`, live.diff === "hard" ? "HARD" : "NORMAL"));
     const el2 = live && live.pullAt ? (now - live.pullAt) / 1000 : 0;
     if (live && live.pullAt) top.append(el("span", "bClock", `⏱ ${clock(el2)}`));
     right.append(top);

@@ -30,12 +30,13 @@
   function createEngine(data, hooks) {
     const now = hooks.now || (() => Date.now());
     const bosses = data.bosses;
-    let prefs = { prewarn: 3, hpCalls: true, castCalls: true, thresholds: {}, maxHp: {}, off: {}, enrage: {} };
+    let prefs = { prewarn: 3, hpCalls: true, castCalls: true, thresholds: {}, maxHp: {}, sizes: {}, off: {}, enrage: {} };
     const DPS_WINDOW_MS = 20_000; // the group's damage per second: over this long
 
     const npc = new Map(); // entity -> { hp, at }, monsters only, a few seconds
     const spawnMax = new Map(); // entity -> max HP, from its spawn (the game's own number)
     const spawnKey = new Map(); // entity -> boss key, from its spawn's model code (data.js `codes`)
+    const spawnCode = new Map(); // entity -> its model code (Normal and Hard differ)
     function bossOfCode(code) {
       for (const [key, b] of Object.entries(bosses)) if ((b.codes || []).includes(code)) return key;
       return null;
@@ -65,7 +66,9 @@
       const b = bosses[key];
       if (!b) return [];
       const own = prefs.thresholds[key] || {};
-      return b.hp
+      // Hard's own numbers when data.js has them (`hpHard`), else the same.
+      const list = boss && boss.key === key && b.hpHard && difficulty() === "hard" ? b.hpHard : b.hp;
+      return list
         .filter((t) => !prefs.off[`${key}:${t.id}`])
         .map((t) => ({ ...t, pct: Number.isFinite(Number(own[t.id])) ? Number(own[t.id]) : t.pct }))
         .sort((x, y) => y.pct - x.pct);
@@ -93,6 +96,36 @@
       return hp > 0 ? pickMax(key, hp) : { max: 0, fromPeak: true };
     }
 
+    // Normal or Hard: from the spawn's model code when data.js knows it
+    // (`hardCodes`/`normalCodes`), else from the max HPs seen of this boss
+    // (two clearly apart: the higher is Hard). null: not known yet.
+    function difficulty() {
+      if (!boss || !boss.key) return null;
+      const b = bosses[boss.key];
+      const code = spawnCode.get(boss.id);
+      if (code && (b.hardCodes || []).includes(code)) return "hard";
+      if (code && (b.normalCodes || []).includes(code)) return "normal";
+      const max = boss.max;
+      if (!(max > 0)) return null;
+      if (b.hardMinHp && max >= b.hardMinHp) return "hard";
+      if (b.hardMinHp) return "normal";
+      if (boss.maxFromPeak) return null; // a peak seen mid-fight is no size to go by
+      noteSize(boss.key, max);
+      const seen = (prefs.sizes[boss.key] || []).slice().sort((x, y) => x - y);
+      const lo = seen[0], hi = seen[seen.length - 1];
+      if (hi < lo * 1.15) return null; // one size seen so far
+      return max >= Math.sqrt(lo * hi) ? "hard" : "normal";
+    }
+
+    // Every max HP of a boss seen (the game's own, or the peak): kept, to tell Normal from Hard.
+    function noteSize(key, max) {
+      if (!key || !(max > 0)) return;
+      const list = prefs.sizes[key] || [];
+      if (list.some((m) => Math.abs(m - max) / max <= 0.02)) return;
+      prefs.sizes = { ...prefs.sizes, [key]: list.concat(max).slice(-6) };
+      hooks.savePrefs?.(prefs);
+    }
+
     function newFight(id, key, hp) {
       const m = maxFor(id, key, hp);
       boss = { id, key, max: m.max, maxFromPeak: m.fromPeak, cur: hp, pct: 100, low: 100, fired: new Set(), seen: {}, start: now(), hpAt: now(), pullAt: 0, samples: [] };
@@ -106,6 +139,7 @@
       const next = thresholds(boss.key).find((t) => !boss.fired.has(t.id));
       hooks.state?.({
         key: boss.key,
+        diff: difficulty(),
         name: b ? b.name : "Chefe",
         short: b ? b.short : "CHEFE",
         pct: boss.max > 0 ? boss.pct : null,
@@ -247,7 +281,7 @@
     }
 
     function logIt(what, at) {
-      const entry = { at, boss: boss?.key || null, what, pct: boss && boss.max > 0 ? Math.round(boss.pct * 10) / 10 : null, since: boss && boss.pullAt ? at - boss.pullAt : null };
+      const entry = { at, boss: boss?.key || null, what, pct: boss && boss.max > 0 ? Math.round(boss.pct * 10) / 10 : null, diff: difficulty(), code: boss ? spawnCode.get(boss.id) || null : null, since: boss && boss.pullAt ? at - boss.pullAt : null };
       log.push(entry);
       if (log.length > MAX_LOG) log = log.slice(-MAX_LOG);
       hooks.saveLog?.(log);
@@ -362,6 +396,11 @@
       const key = bossOfCode(Number(d && d.code));
       if (!Number.isFinite(id) || !(max >= data.minBossHp || key)) return;
       spawnMax.set(id, max);
+      const code = Number(d && d.code);
+      if (code) {
+        spawnCode.set(id, code);
+        if (spawnCode.size > 200) spawnCode.delete(spawnCode.keys().next().value);
+      }
       if (key) {
         spawnKey.set(id, key);
         if (spawnKey.size > 200) spawnKey.delete(spawnKey.keys().next().value);

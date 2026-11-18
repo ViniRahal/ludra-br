@@ -45,7 +45,7 @@
       .map((e) => ({ t: e.at - f.pullAt, title: `${e.what.title}${e.what.n > 1 ? ` ${e.what.n}` : ""}`, pct: e.pct }));
     const deaths = (window.ludraDeaths || []).filter((d) => d.pull === f.pullAt).map((d) => ({ t: d.at - f.pullAt, name: d.name, mech: d.mech }));
     if (!rows.length && !mechs.length) return; // nothing seen of it
-    fights.unshift({ id: f.pullAt, key: f.key, name: f.name, at: Date.now(), dur, won, low: Math.round(f.low * 10) / 10, rows, mechs, deaths });
+    fights.unshift({ id: f.pullAt, key: f.key, name: f.name, diff: f.diff || null, at: Date.now(), dur, won, low: Math.round(f.low * 10) / 10, rows, mechs, deaths });
     fights = fights.slice(0, KEEP);
     save();
     render();
@@ -60,6 +60,7 @@
     if (!s || !s.key || !s.pullAt) return;
     if (!fight) fight = { key: s.key, name: s.name, pullAt: s.pullAt, low: 100, done: false };
     if (s.pct != null) fight.low = Math.min(fight.low, s.pct);
+    if (s.diff) fight.diff = s.diff;
     if (s.cur <= 0 && s.pct != null && !fight.done) {
       const f = fight;
       setTimeout(() => end(f, true), 1500); // the last hits reach the meter
@@ -76,7 +77,7 @@
     const c = el("div", `card fight${f.won ? " won" : " wipe"}`);
     const head = el("div", "fHead");
     const title = el("div", "fTitle");
-    title.append(el("b", "", f.name), el("span", `fRes ${f.won ? "won" : "wipe"}`, f.won ? "Derrotado" : `Wipe em ${String(f.low).replace(".", ",")}%`));
+    title.append(el("b", "", f.name + (f.diff ? ` · ${f.diff === "hard" ? "Hard" : "Normal"}` : "")), el("span", `fRes ${f.won ? "won" : "wipe"}`, f.won ? "Derrotado" : `Wipe em ${String(f.low).replace(".", ",")}%`));
     const meta = el("div", "fMeta", `${when(f.at)} · ${clock(f.dur)}`);
     head.append(title, meta);
     c.append(head);
@@ -145,7 +146,7 @@
     g.textBaseline = "middle";
     g.font = "700 20px Segoe UI, sans-serif";
     g.fillStyle = "#fff";
-    g.fillText(f.name, PAD, PAD + 12);
+    g.fillText(f.name + (f.diff ? ` · ${f.diff === "hard" ? "Hard" : "Normal"}` : ""), PAD, PAD + 12);
     g.font = "600 13px Segoe UI, sans-serif";
     g.fillStyle = f.won ? "#5fd38a" : "#ff6b62";
     const res = f.won ? "DERROTADO" : `WIPE EM ${String(f.low).replace(".", ",")}%`;

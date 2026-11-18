@@ -8,7 +8,7 @@ const DEFAULTS = {
   enabled: true, widget: true, castCalls: true, hpCalls: true, prewarn: "3",
   size: "60", fg: "#ffd84d", bg: "#000000", bgOpacity: 80, showHp: true,
   speak: true, volume: 100, voiceName: "", rate: "1.15",
-  thresholds: {}, maxHp: {}, off: {}, enrage: {},
+  thresholds: {}, maxHp: {}, sizes: {}, off: {}, enrage: {},
 };
 let prefs = { ...DEFAULTS };
 let gameOpen = false;
@@ -19,7 +19,7 @@ let liveKey = ""; // what `live` showed last
 const save = () => a2.storage.set("prefs", prefs).catch(() => {});
 const enginePrefs = () => ({
   prewarn: Number(prefs.prewarn) || 0, hpCalls: prefs.hpCalls, castCalls: prefs.castCalls,
-  thresholds: prefs.thresholds, maxHp: prefs.maxHp, off: prefs.off, enrage: prefs.enrage,
+  thresholds: prefs.thresholds, maxHp: prefs.maxHp, sizes: prefs.sizes || {}, off: prefs.off, enrage: prefs.enrage,
 });
 
 // ---- The voice ---------------------------------------------------------
@@ -122,6 +122,7 @@ const engineHooks = {
   },
   savePrefs(p) {
     prefs.maxHp = p.maxHp;
+    prefs.sizes = p.sizes;
     save();
   },
   saveLog(l) {
@@ -495,7 +496,7 @@ $(".learn").addEventListener("click", () => {
   renderBosses();
 });
 $(".copy").addEventListener("click", async () => {
-  const lines = engine.getLog().map((e) => `${new Date(e.at).toISOString()}\t${BOSS_NAME(e.boss)}\t${e.what?.title || "?"}${e.what?.n > 1 ? ` #${e.what.n}` : ""}\t${e.pct ?? ""}\t${e.since != null ? (e.since / 1000).toFixed(1) + "s" : ""}`);
+  const lines = engine.getLog().map((e) => `${new Date(e.at).toISOString()}\t${BOSS_NAME(e.boss)}\t${e.what?.title || "?"}${e.what?.n > 1 ? ` #${e.what.n}` : ""}\t${e.pct ?? ""}\t${e.since != null ? (e.since / 1000).toFixed(1) + "s" : ""}\t${e.diff || ""}\t${e.code || ""}`);
   const text = lines.join("\n");
   const ta = $(".logText");
   try {

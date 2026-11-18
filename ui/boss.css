@@ -88,3 +88,6 @@ body.locked .panel { cursor: default; }
 .panel.t-minimo .bNum { min-width: 70px; }
 .panel.t-minimo .bNum small { font-size: 9px; }
 .bNext.soon { color: #ff6b62; font-weight: 700; }
+.bDiff { margin-left: 6px; padding: 0 5px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: .05em; vertical-align: middle; }
+.bDiff.hard { background: #c2382f; color: #fff; }
+.bDiff.normal { background: rgba(255,255,255,.18); color: #fff; }
