@@ -1,7 +1,7 @@
 // "Resumo das lutas": at the end of each fight with a Ludra boss (killed or a
-// wipe), a card with each player's DPS and the DPS seal it earns, the deaths,
+// wipe), a card with each player's DPS (highest first), the deaths,
 // and the mechanics as they came. The card can be copied as an image for the
-// Discord (the Staff gives the seals from a print).
+// Discord.
 (function () {
   const K = window.meterKit;
   if (!K) return;
@@ -10,13 +10,6 @@
   const STORE = "ludra:fights";
   const KEEP = 15;
   const MIN_WIPE_MS = 30_000; // a wipe shorter than this: a bad pull, not kept
-  // The Ludra LFG seals: average DPS over the fight.
-  const SEALS = [
-    [80000, "Selo 80k", "gold"],
-    [50000, "Selo 50k", "silver"],
-    [30000, "Selo 30k", "bronze"],
-  ];
-  const sealOf = (dps) => SEALS.find(([min]) => dps >= min) || null;
 
   const load = () => {
     try {
@@ -46,7 +39,7 @@
     won = won || !!f.killed;
     const dur = won && lastView && lastView.time_ms > 0 ? lastView.time_ms : Date.now() - f.pullAt;
     if (!won && dur < MIN_WIPE_MS) return;
-    const rows = ((lastView && lastView.rows) || []).map((r) => ({ name: r.name, class: r.class, dps: r.dps, total: r.total, deaths: r.deaths || 0, me: !!r.me }));
+    const rows = ((lastView && lastView.rows) || []).map((r) => ({ name: r.name, class: r.class, dps: r.dps, total: r.total, deaths: r.deaths || 0, me: !!r.me })).sort((a, b) => b.dps - a.dps);
     const mechs = (window.ludraLog?.() || [])
       .filter((e) => e.boss === f.key && e.at >= f.pullAt - 2000 && e.what && !String(e.what.title || "").startsWith("skill "))
       .map((e) => ({ t: e.at - f.pullAt, title: `${e.what.title}${e.what.n > 1 ? ` ${e.what.n}` : ""}`, pct: e.pct }));
@@ -87,19 +80,20 @@
     head.append(title, meta);
     c.append(head);
     if (!f.rows.length) c.append(el("p", "note", "O medidor não pegou dano nessa luta."));
-    for (const r of f.rows) {
+    const ranked = f.rows.slice().sort((a, b) => b.dps - a.dps);
+    ranked.forEach((r, i) => {
       const row = el("div", `fRow${r.me ? " me" : ""}`);
       row.style.setProperty("--c", COLORS[r.class] || "#8892a6");
-      const seal = sealOf(r.dps);
       row.append(
+        el("span", "fPos", `${i + 1}`),
         icon(r.class),
         el("span", "fName", r.name),
+        el("span", "fTotal", short(r.total)),
         el("span", "fDps", `${short(r.dps)}/s`),
-        seal ? el("span", `fSeal ${seal[2]}`, seal[1]) : el("span", "fSeal none", "—"),
         el("span", "fDead", r.deaths ? `☠ ${r.deaths}` : ""),
       );
       c.append(row);
-    }
+    });
     if (f.mechs.length) {
       const m = el("div", "fMechs");
       for (const x of f.mechs.slice(0, 30)) m.append(el("span", "fMech", `${clock(x.t)} ${x.title}${x.pct != null ? ` (${String(x.pct).replace(".", ",")}%)` : ""}`));
@@ -156,7 +150,8 @@
     g.textAlign = "left";
     let y = PAD + 52;
     const top = Math.max(1, ...f.rows.map((r) => r.dps));
-    for (const r of f.rows) {
+    const ranked = f.rows.slice().sort((a, b) => b.dps - a.dps);
+    ranked.forEach((r, i) => {
       const c = COLORS[r.class] || "#8892a6";
       g.fillStyle = "#171b22";
       g.fillRect(PAD, y + 2, W - PAD * 2, RH - 4);
@@ -166,18 +161,17 @@
       g.fillRect(PAD, y + 2, 3, RH - 4);
       g.font = `${r.me ? 700 : 600} 14px Segoe UI, sans-serif`;
       g.fillStyle = "#fff";
-      g.fillText(r.name + (r.deaths ? `  ☠${r.deaths}` : ""), PAD + 12, y + RH / 2);
+      g.fillText(`${i + 1}. ${r.name}` + (r.deaths ? `  ☠${r.deaths}` : ""), PAD + 12, y + RH / 2);
       g.textAlign = "right";
-      const seal = sealOf(r.dps);
-      g.font = "700 13px Segoe UI, sans-serif";
-      g.fillStyle = seal ? { gold: "#ffd84d", silver: "#d6dde8", bronze: "#e09a5a" }[seal[2]] : "#59606c";
-      g.fillText(seal ? seal[1] : "—", W - PAD - 10, y + RH / 2);
       g.fillStyle = "#fff";
-      g.font = "600 14px Segoe UI, sans-serif";
-      g.fillText(`${short(r.dps)}/s`, W - PAD - 110, y + RH / 2);
+      g.font = "700 14px Segoe UI, sans-serif";
+      g.fillText(`${short(r.dps)}/s`, W - PAD - 10, y + RH / 2);
+      g.font = "13px Segoe UI, sans-serif";
+      g.fillStyle = "#aeb6c4";
+      g.fillText(short(r.total), W - PAD - 110, y + RH / 2);
       g.textAlign = "left";
       y += RH;
-    }
+    });
     if (mechLines) {
       y += 14;
       g.font = "12px Segoe UI, sans-serif";
