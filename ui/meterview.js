@@ -60,5 +60,8 @@
       row.title = `${r.name}: ${Math.round(r.share)}% do dano do grupo`;
       box.append(row);
     }
+    // Opened with the game already running, the names come with the next
+    // area load: until then a player shows as "#id".
+    if (rows.some((r) => r.name.startsWith("#"))) box.append(el("div", "mHint", "Dê um TP para o app ver os nomes"));
   };
 })();
