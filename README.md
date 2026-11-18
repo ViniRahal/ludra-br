@@ -4,7 +4,7 @@ Avisos das mecânicas do **Ludra** (Abyssal Forge) (AION 2) em português, com t
 
 ## Baixar
 
-**[Baixar o instalador para Windows](https://github.com/ViniRahal/ludra-br/raw/main/download/LudraBR-Instalador.exe)** (versão 0.7.7, cerca de 1,6 MB)
+**[Baixar o instalador para Windows](https://github.com/ViniRahal/ludra-br/raw/main/download/LudraBR-Instalador.exe)** (versão 0.7.8, cerca de 1,6 MB)
 
 1. Instale o **Npcap**: https://npcap.com/#download. Quem já usa Questlog, A2Tools ou outro medidor de DPS já tem.
 2. Abra o instalador. Se o Windows mostrar "O Windows protegeu o computador", clique em **Mais informações** e depois em **Executar assim mesmo**. O aviso aparece porque o programa ainda não tem assinatura digital.

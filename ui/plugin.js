@@ -60,6 +60,29 @@ function beep(high) {
     o.stop(audio.currentTime + 0.18);
   } catch {}
 }
+// A bell ("plim"): a few sine partials that ring out, made here, no sound file.
+function bell() {
+  if (prefs.volume <= 0) return;
+  try {
+    audio ||= new (window.AudioContext || window.webkitAudioContext)();
+    if (audio.state !== "running") audio.resume().catch(() => {});
+    const t = audio.currentTime;
+    const vol = 0.22 * Math.pow(prefs.volume / 100, 2);
+    for (const [f, a, d] of [[1318, 1, 1.4], [2637, 0.45, 0.9], [3951, 0.2, 0.5]]) {
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type = "sine";
+      o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol * a, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      o.connect(g).connect(audio.destination);
+      o.start(t);
+      o.stop(t + d + 0.05);
+    }
+  } catch {}
+}
+window.ludraBell = bell;
+document.querySelector(".bellTest")?.addEventListener("click", () => bell());
 function say(text, urgent) {
   beep(urgent);
   if (!prefs.speak || !synth || !text || prefs.volume <= 0) return;
@@ -115,6 +138,7 @@ window.ludraCall = (c) => engineHooksCall(c);
 // The stagger: "almost full" when the blue bar passes 85%, "broken" when it
 // falls from full. Deaths: each one, with the mechanic that came just before.
 let lastStagger = null;
+let lastAggro = "", lastBell = 0;
 const deathsSeen = new Map(); // id -> deaths counted this fight
 let deathFight = 0;
 window.ludraDeaths = [];
@@ -125,13 +149,21 @@ window.__TAURI__?.event.listen("meter", (e) => {
   const st = v.boss && v.boss.stagger;
   if (key && st != null && live.cur > 0) {
     if (lastStagger != null && lastStagger < 85 && st >= 85 && st < 100 && !prefs.off[`${key}:stagger`]) {
-      engineHooksCall({ kind: "pre", text: "STAGGER QUASE CHEIO", sub: "Guardem o burst para a quebra.", say: "Stagger quase. Guardem o burst" });
+      engineHooksCall({ kind: "pre", text: "FALTA POUCO PRO STAGGER", sub: "Guardem o burst para a quebra.", say: "Stagger quase. Guardem o burst" });
     }
     if (lastStagger != null && lastStagger >= 80 && st <= lastStagger - 50 && !prefs.off[`${key}:stagger`]) {
       engineHooksCall({ kind: "cast", text: "QUEBROU! BATAM TUDO", sub: "O boss está atordoado: usem tudo agora.", say: "Quebrou. Batam tudo" });
     }
   }
   lastStagger = key ? st ?? null : null;
+  // The aggro: when the boss turns from the one it was hitting to someone
+  // else (the tail swipe comes then), a bell. At most once every 5 s.
+  const ag = key && live.cur > 0 && v.boss ? v.boss.aggro || "" : "";
+  if (key && ag && lastAggro && ag !== lastAggro && Date.now() - lastBell > 5000 && prefs.enabled && !prefs.off[`${key}:aggro`]) {
+    lastBell = Date.now();
+    bell();
+  }
+  lastAggro = key ? ag || lastAggro : "";
   // Deaths, during a Ludra fight.
   const pull = (live && live.pullAt) || 0;
   if (!key || !pull) return;
