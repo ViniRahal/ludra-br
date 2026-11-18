@@ -62,9 +62,23 @@ pub struct Me {
     pub server: u16,
 }
 
+/// One of your party, from the game's party list (before any fight too).
+#[derive(Debug, Clone, Serialize, PartialEq, Default)]
+pub struct Member {
+    pub name: String,
+    pub class: String,
+    pub level: i32,
+    pub gs: i32,
+    pub cp: i64,
+    pub me: bool,
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq, Default)]
 pub struct View {
     pub me: Option<Me>,
+    pub party: Vec<Member>,
+    /// Your ping to the game server, in ms.
+    pub ping: Option<i32>,
     pub target: String,
     pub target_id: i32,
     pub time_ms: i64,
@@ -83,6 +97,15 @@ pub struct Meter {
     last_target: i32,
     /// A boss-sized monster's hits: (at, actor, target), the last few seconds.
     hits: VecDeque<(i64, i32, i32)>,
+    ping: Arc<PingTracker>,
+}
+
+fn class_name(c: Option<a2tools::entity::job_class::JobClass>) -> String {
+    match c.map(|c| format!("{c:?}").to_lowercase()).as_deref() {
+        Some("elementalist") => "spiritmaster".to_string(),
+        Some(c) => c.to_string(),
+        None => String::new(),
+    }
 }
 
 /// The game's Korean class names, as the calculator gives them.
@@ -109,8 +132,25 @@ impl Meter {
         let npcs = Arc::new(NpcLookup::new());
         npcs.load_from_json(NPCS_PT);
         let dots = serde_json::from_str::<Vec<i32>>(DOT_IDS).unwrap_or_default().into_iter().collect();
-        let calc = DpsCalculator::new(storage.clone(), skills.clone(), npcs.clone(), Arc::new(PingTracker::new()));
-        Meter { storage, skills, npcs, dots, calc, history: VecDeque::new(), last_target: 0, hits: VecDeque::new() }
+        let ping = Arc::new(PingTracker::new());
+        let calc = DpsCalculator::new(storage.clone(), skills.clone(), npcs.clone(), ping.clone());
+        Meter { storage, skills, npcs, dots, calc, history: VecDeque::new(), last_target: 0, hits: VecDeque::new(), ping }
+    }
+
+    /// A segment of the game's connection, either way: for the ping.
+    pub fn ping_packet(&self, src_port: u16, dst_port: u16, data: &[u8], at_ms: i64, server_port: u16) {
+        let cap = a2tools::capture::captured_payload::CapturedPayload {
+            src_port,
+            dst_port,
+            data: data.to_vec(),
+            device_name: None,
+            captured_at_ms: at_ms,
+            src_ip: None,
+            dst_ip: None,
+            tcp_seq: 0,
+            tcp_ack: 0,
+        };
+        self.ping.on_packet(&cap, server_port);
     }
 
     /// A reader for one connection's bytes, writing into this meter's store.
@@ -191,18 +231,27 @@ impl Meter {
         let lp = self.storage.local_profile();
         let me_info = lp.name.filter(|n| !n.trim().is_empty()).map(|name| Me {
             name: name.trim().to_string(),
-            class: match lp.class.map(|c| format!("{c:?}").to_lowercase()).as_deref() {
-                Some("elementalist") => "spiritmaster".to_string(),
-                Some(c) => c.to_string(),
-                None => String::new(),
-            },
+            class: class_name(lp.class),
             cp: lp.combat_power.unwrap_or(0),
             gs: lp.gear_score.unwrap_or(0),
             level: lp.level.unwrap_or(0),
             server: lp.server_id,
         });
+        let my_name = me_info.as_ref().map(|m| m.name.clone()).unwrap_or_default();
+        let mut party: Vec<(u8, Member)> = self
+            .storage
+            .get_party_members()
+            .into_iter()
+            .map(|(name, p)| {
+                let name = name.trim().to_string();
+                (p.slot, Member { me: !my_name.is_empty() && name == my_name, name, class: class_name(p.job), level: p.level, gs: p.gear_score, cp: p.combat_power })
+            })
+            .collect();
+        party.sort_by_key(|(slot, _)| *slot);
         View {
             me: me_info,
+            party: party.into_iter().map(|(_, m)| m).collect(),
+            ping: self.ping.current_ping_ms(),
             target: d.target_name.clone(),
             target_id: d.target_id,
             time_ms: d.battle_time,

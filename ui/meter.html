@@ -24,9 +24,6 @@
       let view = null;
       function draw() {
         renderMeter(box, view);
-        // Out of a fight, shown only while the player is placing it.
-        const fight = !!(view && view.rows && view.rows.length);
-        box.style.display = fight || (arrange.on && !document.body.classList.contains("locked")) ? "" : "none";
         const r = box.getBoundingClientRect();
         T && T.core.invoke("overlay_areas", { areas: [{ x: r.left, y: r.top, width: r.width, height: r.height }] });
       }

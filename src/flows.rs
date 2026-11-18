@@ -145,6 +145,17 @@ impl Flows {
     /// whether the game was found.
     pub fn push(&mut self, seg: &Segment) -> (Vec<Event>, Option<Status>) {
         let mut status = None;
+        // The game's connection, both ways, times the ping.
+        if let (Some(lk), Some(m)) = (self.locked, self.meter.as_ref()) {
+            let mine = (seg.src_ip, seg.src_port, seg.dst_ip, seg.dst_port) == lk;
+            let back = (seg.dst_ip, seg.dst_port, seg.src_ip, seg.src_port) == lk;
+            if mine || back {
+                m.ping_packet(seg.src_port, seg.dst_port, &seg.data, seg.at_ms, lk.1);
+            }
+            if back {
+                return (Vec::new(), None);
+            }
+        }
         // Server -> client only: a game server talks from a fixed port to the
         // client's high one. Either way round is tried until locked.
         let key: Key = (seg.src_ip, seg.src_port, seg.dst_ip, seg.dst_port);

@@ -210,6 +210,36 @@ fn update_now(app: tauri::AppHandle) {
     let _ = app;
 }
 
+/// Alt+E, from anywhere (the game too): opens this window, or tucks it away
+/// when it is already in front.
+fn hotkey(app: tauri::AppHandle) {
+    #[cfg(windows)]
+    std::thread::spawn(move || unsafe {
+        use windows_sys::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, MOD_ALT, MOD_NOREPEAT};
+        use windows_sys::Win32::UI::WindowsAndMessaging::{GetMessageW, MSG, WM_HOTKEY};
+        if RegisterHotKey(std::ptr::null_mut(), 1, MOD_ALT | MOD_NOREPEAT, 'E' as u32) == 0 {
+            return;
+        }
+        let mut msg: MSG = std::mem::zeroed();
+        while GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0) > 0 {
+            if msg.message == WM_HOTKEY {
+                if let Some(w) = app.get_webview_window("main") {
+                    let front = w.is_visible().unwrap_or(false) && !w.is_minimized().unwrap_or(false) && w.is_focused().unwrap_or(false);
+                    if front {
+                        let _ = w.minimize();
+                    } else {
+                        let _ = w.unminimize();
+                        let _ = w.show();
+                        let _ = w.set_focus();
+                    }
+                }
+            }
+        }
+    });
+    #[cfg(not(windows))]
+    let _ = app;
+}
+
 fn start_capture(app: tauri::AppHandle, state: Arc<App>) {
     let (tx, rx) = sync_channel::<flows::Segment>(50_000);
     match capture::start(tx) {
@@ -340,6 +370,7 @@ fn main() {
                     }
                 });
             }
+            hotkey(handle.clone());
             follow_cursor(handle.clone(), state.clone());
             start_capture(handle, state.clone());
             Ok(())

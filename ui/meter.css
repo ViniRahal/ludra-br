@@ -28,3 +28,15 @@
 .mWho .cp { color: #ffd479; }
 .mWho .gs { color: rgba(233, 238, 246, 0.6); }
 .mWho .wait { color: #ffb347; }
+.mTab { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: rgba(78, 163, 245, 0.18); color: #cfe6ff; }
+.mCols { display: grid; grid-template-columns: 26px 1fr 52px 60px; gap: 6px; padding: 6px 6px 0; font-size: 10.5px; letter-spacing: 0.05em; color: rgba(233, 238, 246, 0.45); }
+.mCols span { text-align: right; }
+.mRow.mParty { grid-template-columns: 26px 1fr 52px 60px; height: 28px; }
+.mRow.mParty::before { background: linear-gradient(90deg, color-mix(in srgb, var(--c) 32%, transparent), color-mix(in srgb, var(--c) 8%, transparent)); border-right: 0; border-left: 2px solid var(--c); }
+.mGs { text-align: right; color: rgba(233, 238, 246, 0.8); }
+.mCp { text-align: right; font-weight: 700; }
+.mFoot { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding: 4px 4px 0; border-top: 1px solid rgba(255, 255, 255, 0.07); font-size: 11.5px; color: rgba(233, 238, 246, 0.55); }
+.mPing { font-variant-numeric: tabular-nums; }
+.mPing.good { color: #5ee08a; }
+.mPing.mid { color: #f0c24a; }
+.mPing.bad { color: #ff6a6a; }
