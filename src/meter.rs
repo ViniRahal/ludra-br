@@ -58,6 +58,8 @@ pub struct Me {
     pub class: String,
     pub cp: i64,
     pub gs: i32,
+    pub level: u32,
+    pub server: u16,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Default)]
@@ -196,6 +198,8 @@ impl Meter {
             },
             cp: lp.combat_power.unwrap_or(0),
             gs: lp.gear_score.unwrap_or(0),
+            level: lp.level.unwrap_or(0),
+            server: lp.server_id,
         });
         View {
             me: me_info,

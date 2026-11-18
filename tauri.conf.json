@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Ludra BR",
-  "version": "0.5.5",
+  "version": "0.6.0",
   "identifier": "br.ludralfg.ludrabr",
   "build": { "frontendDist": "ui" },
   "app": {
@@ -9,7 +9,7 @@
     "windows": [
       {
         "label": "main", "title": "Ludra BR", "url": "index.html",
-        "width": 500, "height": 720, "minWidth": 420, "minHeight": 480,
+        "width": 1060, "height": 720, "minWidth": 760, "minHeight": 520,
         "backgroundThrottling": "disabled",
         "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required"
       },

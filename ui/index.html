@@ -7,39 +7,94 @@
     <link rel="stylesheet" href="meter.css" />
   </head>
   <body>
-    <div class="status" hidden></div>
-    <header class="top">
-      <div class="live" aria-live="polite">
+    <aside class="side">
+      <div class="brand"><img src="classes/sorcerer.png" alt="" class="brandIcon" /><b>Ludra BR</b></div>
+      <nav class="nav" role="tablist">
+        <button type="button" class="tab isActive" data-tab="inicio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Início</span></button>
+        <button type="button" class="tab" data-tab="overlays"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg><span>Overlays</span></button>
+        <div class="navHead">No jogo</div>
+        <button type="button" class="tab" data-tab="dano"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Medidor de combate</span></button>
+        <button type="button" class="tab" data-tab="mec"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg><span>Mecânicas</span></button>
+        <button type="button" class="tab" data-tab="chars"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Personagens</span></button>
+        <div class="navHead">Registros</div>
+        <button type="button" class="tab" data-tab="log"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Registro de mecânicas</span></button>
+        <div class="navHead">Ajustes</div>
+        <button type="button" class="tab" data-tab="look"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/></svg><span>Aparência e voz</span></button>
+      </nav>
+      <div class="ver"></div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <span class="pill gamePill"><i></i><span>Esperando o jogo</span></span>
+      </div>
+
+    <section class="pane" data-pane="inicio">
+      <div class="hero">
+        <div>
+          <h1 class="hello">Olá</h1>
+          <p class="heroSub">Avisos de mecânica do Ludra, painel do boss e medidor de dano, em português.</p>
+          <div class="heroPills"><span class="pill gamePill"><i></i><span>Esperando o jogo</span></span><span class="pill whoPill">Personagem: dê um TP</span></div>
+        </div>
+      </div>
+      <div class="status" hidden></div>
+      <div class="card live" aria-live="polite">
+        <div class="cardHead">Boss agora</div>
         <div class="liveName">Esperando o boss</div>
         <div class="bar"><div class="fill"></div><span class="pct">—</span></div>
         <div class="liveNext"></div>
         <div class="liveStats"></div>
       </div>
-      <label class="switch"><span>Avisos ligados</span><input type="checkbox" class="enabled" /></label>
-      <label class="switch"><span>Voz dos avisos</span><input type="checkbox" class="speakTop" /></label>
-      <label class="switch"><span>Texto grande na tela</span><input type="checkbox" class="widget" /></label>
-      <label class="switch"><span>Painel do boss na tela (vida, aggro)</span><input type="checkbox" class="bossOn" /></label>
-      <label class="switch"><span>Visual do painel</span><select class="bossTheme"><option value="moldura">B: Moldura do jogo</option><option value="natural">A: Natural (sem caixa)</option><option value="minimo">C: Mínimo</option><option value="caixa">D: Caixa escura</option></select></label>
-      <label class="row"><span>Tamanho do painel</span><input type="range" class="bossScale" min="60" max="180" step="10" /></label>
-      <label class="row"><span>Painel visível (menos = mais transparente)</span><input type="range" class="bossAlpha" min="20" max="100" step="5" /></label>
-      <label class="switch"><span>Medidor de dano na tela</span><input type="checkbox" class="meterOn" /></label>
-      <label class="row"><span>Tamanho do medidor</span><input type="range" class="meterScale" min="60" max="180" step="10" /></label>
-      <label class="row"><span>Medidor visível (menos = mais transparente)</span><input type="range" class="meterAlpha" min="20" max="100" step="5" /></label>
-      <label class="switch"><span>Travar no lugar (cliques passam para o jogo)</span><input type="checkbox" class="lock" /></label>
-      <div class="inline">
-        <button type="button" class="btn test">Testar</button>
-        <span class="note small">Toca um Bingo de mentira.</span>
+      <div class="card">
+        <div class="cardHead">Atalhos</div>
+        <label class="switch"><span>Avisos ligados</span><input type="checkbox" class="enabled" /></label>
+        <label class="switch"><span>Voz dos avisos</span><input type="checkbox" class="speakTop" /></label>
+        <div class="inline">
+          <button type="button" class="btn primary test">Testar</button>
+          <span class="note">Mostra um Bingo de mentira na tela.</span>
+        </div>
       </div>
-    </header>
+    </section>
 
-    <nav class="tabs" role="tablist">
-      <button type="button" class="tab isActive" data-tab="mec">Mecânicas</button>
-      <button type="button" class="tab" data-tab="dano">Dano</button>
-      <button type="button" class="tab" data-tab="log">Registro</button>
-      <button type="button" class="tab" data-tab="look">Aparência e voz</button>
-    </nav>
+    <section class="pane" data-pane="overlays" hidden>
+      <h2>Overlays</h2>
+      <p class="note">O que aparece por cima do jogo. Fora da luta, tudo fica escondido; quando você está nesta janela, as caixas aparecem para arrastar.</p>
+      <div class="grid2">
+        <div class="card">
+          <div class="cardHead">Avisos de mecânica</div>
+          <label class="switch"><span>Mostrar na tela</span><input type="checkbox" class="widget" /></label>
+          <p class="note">Tamanho, cores e transparência em "Aparência e voz".</p>
+        </div>
+        <div class="card">
+          <div class="cardHead">Painel do boss</div>
+          <label class="switch"><span>Mostrar na tela (vida, aggro, enrage)</span><input type="checkbox" class="bossOn" /></label>
+          <label class="switch"><span>Visual</span><select class="bossTheme"><option value="moldura">B: Moldura do jogo</option><option value="natural">A: Natural (sem caixa)</option><option value="minimo">C: Mínimo</option><option value="caixa">D: Caixa escura</option></select></label>
+          <label class="row"><span>Tamanho</span><input type="range" class="bossScale" min="60" max="180" step="10" /></label>
+          <label class="row"><span>Opacidade</span><input type="range" class="bossAlpha" min="20" max="100" step="5" /></label>
+        </div>
+        <div class="card">
+          <div class="cardHead">Medidor de dano</div>
+          <label class="switch"><span>Mostrar na tela</span><input type="checkbox" class="meterOn" /></label>
+          <label class="row"><span>Tamanho</span><input type="range" class="meterScale" min="60" max="180" step="10" /></label>
+          <label class="row"><span>Opacidade</span><input type="range" class="meterAlpha" min="20" max="100" step="5" /></label>
+          <label class="row"><span>Fundo</span><input type="range" class="meterOpacity" min="30" max="100" step="5" /></label>
+        </div>
+        <div class="card">
+          <div class="cardHead">Controles</div>
+          <label class="switch"><span>Travar no lugar (cliques passam para o jogo)</span><input type="checkbox" class="lock" /></label>
+          <p class="note">Destravado, arraste cada caixa. Clique duas vezes numa caixa para abrir esta janela.</p>
+        </div>
+      </div>
+    </section>
 
-    <section class="pane" data-pane="mec">
+    <section class="pane" data-pane="dano" hidden>
+      <h2>Medidor de combate</h2>
+      <p class="note">Quem bateu quanto no boss. A coluna do meio é o dano por segundo dos últimos 10 segundos (verde: acima da média).</p>
+      <div class="meter mainMeter"></div>
+    </section>
+
+    <section class="pane" data-pane="mec" hidden>
+      <h2>Mecânicas</h2>
       <label class="switch"><span>Avisar quando o boss usa a mecânica</span><input type="checkbox" class="castCalls" /></label>
       <p class="note sub">Vem do próprio jogo: quando o boss começa a mecânica. Sempre certo.</p>
       <label class="switch"><span>Avisar pela % de vida</span><input type="checkbox" class="hpCalls" /></label>
@@ -55,13 +110,15 @@
       <div class="bosses"></div>
     </section>
 
-    <section class="pane" data-pane="dano" hidden>
-      <p class="note">Quem bateu quanto no boss, lido da luta como nos medidores de DPS. A coluna do meio é o dano por segundo dos últimos 10 segundos (verde: acima da média).</p>
-      <div class="meter mainMeter"></div>
-      <label class="row"><span>Fundo do medidor na tela</span><input type="range" class="meterOpacity" min="30" max="100" step="5" /></label>
+    <section class="pane" data-pane="chars" hidden>
+      <div class="charHead"></div>
+      <div class="charTabs" role="tablist"></div>
+      <div class="charStats"></div>
+      <p class="note charNote">Cada personagem que você usar com o Ludra BR aberto aparece aqui depois de um TP.</p>
     </section>
 
     <section class="pane" data-pane="log" hidden>
+      <h2>Registro de mecânicas</h2>
       <p class="note">Em que % de vida cada mecânica realmente veio, nas suas lutas. Use isso para acertar os avisos por %.</p>
       <div class="inline">
         <button type="button" class="btn learn">Ajustar % pelo registro</button>
@@ -77,6 +134,7 @@
     </section>
 
     <section class="pane" data-pane="look" hidden>
+      <h2>Aparência e voz</h2>
       <label class="row"><span>Tamanho do texto</span>
         <select class="size">
           <option value="32">Pequeno</option>
@@ -105,6 +163,7 @@
       <p class="note voiceNote"></p>
       <p class="note">Destravado, arraste o texto para onde quiser. Clique duas vezes nele para abrir esta janela.</p>
     </section>
+    </main>
 
     <script src="a2.js"></script>
     <script src="data.js"></script>
@@ -114,5 +173,6 @@
     <script src="meterview.js"></script>
     <script src="meterctl.js"></script>
     <script src="bossctl.js"></script>
+    <script src="chars.js"></script>
   </body>
 </html>
