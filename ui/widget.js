@@ -42,7 +42,7 @@ let lastKey = "";
 function render() {
   const now = Date.now();
   const calls = items.filter((x) => x.until > now);
-  const preview = !calls.length && !live && !locked;
+  const preview = !calls.length && !live && !locked && window.arrange && arrange.on;
   const key = JSON.stringify([calls.map((x) => [x.kind, x.text, x.sub, !!x.end]), live ? [live.name, live.next?.title] : null, preview]);
   if (key !== lastKey) {
     lastKey = key;
@@ -122,6 +122,7 @@ a2.on("widget", (d) => {
   style();
   render();
 });
+window.arrange && arrange.listen(() => render());
 a2.on("locked", (on) => {
   locked = !!on;
   render();

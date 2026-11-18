@@ -22,3 +22,9 @@
 .mNow { text-align: right; color: rgba(233, 238, 246, 0.75); }
 .mNow.up { color: #5ee08a; }
 .mSum { text-align: right; color: rgba(233, 238, 246, 0.9); }
+.mWho { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 12px; }
+.mWho img { width: 16px; height: 16px; }
+.mWho b { color: var(--c); }
+.mWho .cp { color: #ffd479; }
+.mWho .gs { color: rgba(233, 238, 246, 0.6); }
+.mWho .wait { color: #ffb347; }

@@ -10,7 +10,7 @@ use ludra_core::{capture, flows};
 
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::mpsc::{sync_channel, RecvTimeoutError};
 use std::sync::Arc;
 use std::time::Duration;
@@ -38,6 +38,32 @@ struct App {
     /// Where each on-screen window's boxes are, in CSS pixels from its corner:
     /// clicks there move it; everywhere else they go to the game.
     areas: Mutex<HashMap<String, Vec<Area>>>,
+    /// The program's windows that have the focus: while one has it, the
+    /// player is arranging, and the empty boxes show where things will go.
+    focused: Mutex<HashSet<String>>,
+}
+
+fn arranging_now(state: &App) -> bool {
+    !state.focused.lock().is_empty()
+}
+
+fn set_focus(app: &tauri::AppHandle, state: &App, label: &str, on: bool) {
+    let before = arranging_now(state);
+    if on {
+        state.focused.lock().insert(label.to_string());
+    } else {
+        state.focused.lock().remove(label);
+    }
+    let after = arranging_now(state);
+    if before != after {
+        let _ = app.emit("arrange", after);
+    }
+}
+
+/// True while the player is in the program (its settings or a box), not the game.
+#[tauri::command]
+fn arranging(state: tauri::State<'_, Arc<App>>) -> bool {
+    arranging_now(&state)
 }
 
 #[derive(Deserialize, Clone, Copy)]
@@ -246,10 +272,10 @@ fn start_capture(app: tauri::AppHandle, state: Arc<App>) {
 }
 
 fn main() {
-    let state = Arc::new(App { status: Mutex::new(Status { capture: "starting".into(), ..Default::default() }), locked: Mutex::new(false), areas: Mutex::new(HashMap::new()) });
+    let state = Arc::new(App { status: Mutex::new(Status { capture: "starting".into(), ..Default::default() }), locked: Mutex::new(false), areas: Mutex::new(HashMap::new()), focused: Mutex::new(HashSet::new()) });
     tauri::Builder::default()
         .manage(state.clone())
-        .invoke_handler(tauri::generate_handler![status, overlay_show, overlay_hide, overlay_lock, overlay_locked, overlay_drag, overlay_areas, show_main, open_npcap])
+        .invoke_handler(tauri::generate_handler![status, overlay_show, overlay_hide, overlay_lock, overlay_locked, overlay_drag, overlay_areas, show_main, open_npcap, arranging])
         .setup(move |app| {
             let handle = app.handle().clone();
             for label in OVER_GAME {
@@ -259,7 +285,11 @@ fn main() {
                     let _ = w.set_position(PhysicalPosition::new(p.x, p.y));
                 }
                 let h2 = handle.clone();
+                let s2 = state.clone();
                 w.on_window_event(move |e| {
+                    if let tauri::WindowEvent::Focused(f) = e {
+                        set_focus(&h2, &s2, label, *f);
+                    }
                     if let tauri::WindowEvent::Moved(pos) = e {
                         if let Some(f) = place_file(&h2, label) {
                             let _ = std::fs::create_dir_all(f.parent().unwrap());
@@ -270,7 +300,14 @@ fn main() {
             }
             if let Some(m) = handle.get_webview_window("main") {
                 let h3 = handle.clone();
+                let s3 = state.clone();
+                if m.is_focused().unwrap_or(true) {
+                    s3.focused.lock().insert("main".into());
+                }
                 m.on_window_event(move |e| {
+                    if let tauri::WindowEvent::Focused(f) = e {
+                        set_focus(&h3, &s3, "main", *f);
+                    }
                     if let tauri::WindowEvent::CloseRequested { .. } = e {
                         h3.exit(0);
                     }

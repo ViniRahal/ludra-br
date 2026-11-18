@@ -32,6 +32,22 @@
     total.append(el("b", "", v ? short(v.dps) : "0"), el("span", "", " DPS"));
     head.append(total);
     if (v && v.target) head.append(el("div", "mTarget", v.target));
+    // Who the program found you are: your name and your combat power.
+    const me = v && v.me;
+    const who = el("div", "mWho");
+    if (me && me.name) {
+      who.style.setProperty("--c", COLORS[me.class] || "#8892a6");
+      if (me.class && me.class !== "fighter") {
+        const img = el("img");
+        img.src = `classes/${me.class}.png`;
+        img.alt = NAMES[me.class] || "";
+        who.append(img);
+      }
+      who.append(el("b", "", me.name));
+      if (me.cp > 0) who.append(el("span", "cp", `CP ${short(me.cp)}`));
+      if (me.gs > 0) who.append(el("span", "gs", `GS ${me.gs.toLocaleString("pt-BR")}`));
+    } else who.append(el("span", "wait", "Personagem não identificado: dê um TP"));
+    head.append(who);
     box.append(head);
     const rows = (v && v.rows) || [];
     if (!rows.length) {

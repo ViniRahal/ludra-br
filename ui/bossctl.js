@@ -20,7 +20,24 @@
   const themeSel = document.querySelector(".bossTheme");
   let theme = get("bossTheme", "moldura");
   themeSel.value = theme;
-  const look = () => T && T.event.emitTo("boss", "boss-look", { theme });
+  const scaleIn = document.querySelector(".bossScale");
+  const alphaIn = document.querySelector(".bossAlpha");
+  let scale = get("bossScale", 100);
+  let alpha = get("bossAlpha", 100);
+  scaleIn.value = String(scale);
+  alphaIn.value = String(alpha);
+  const look = () => T && T.event.emitTo("boss", "boss-look", { theme, scale: scale / 100, alpha: alpha / 100 });
+  scaleIn.addEventListener("input", () => {
+    scale = Number(scaleIn.value);
+    set("bossScale", scale);
+    place();
+    look();
+  });
+  alphaIn.addEventListener("input", () => {
+    alpha = Number(alphaIn.value);
+    set("bossAlpha", alpha);
+    look();
+  });
   themeSel.addEventListener("change", () => {
     theme = themeSel.value;
     set("bossTheme", theme);
@@ -34,7 +51,7 @@
   function place() {
     if (!T) return;
     if (on && (game || testing)) {
-      T.core.invoke("overlay_show", { label: "boss", width: 440, height: 130 });
+      T.core.invoke("overlay_show", { label: "boss", width: Math.ceil(440 * scale / 100), height: Math.ceil(130 * scale / 100) });
       setTimeout(look, 300);
     }
     else T.core.invoke("overlay_hide", { label: "boss" });

@@ -26,10 +26,27 @@
   op.value = String(opacity);
   function place() {
     if (!T) return;
-    if (on && game) T.core.invoke("overlay_show", { label: "meter", width: 400, height: 470 });
+    if (on && game) T.core.invoke("overlay_show", { label: "meter", width: Math.ceil(400 * scale / 100), height: Math.ceil(470 * scale / 100) });
     else T.core.invoke("overlay_hide", { label: "meter" });
   }
-  const look = () => T && T.event.emitTo("meter", "meter-look", { opacity: opacity / 100 });
+  const scaleIn = document.querySelector(".meterScale");
+  const alphaIn = document.querySelector(".meterAlpha");
+  let scale = get("meterScale", 100);
+  let alpha = get("meterAlpha", 100);
+  scaleIn.value = String(scale);
+  alphaIn.value = String(alpha);
+  const look = () => T && T.event.emitTo("meter", "meter-look", { opacity: opacity / 100, scale: scale / 100, alpha: alpha / 100 });
+  scaleIn.addEventListener("input", () => {
+    scale = Number(scaleIn.value);
+    set("meterScale", scale);
+    place();
+    look();
+  });
+  alphaIn.addEventListener("input", () => {
+    alpha = Number(alphaIn.value);
+    set("meterAlpha", alpha);
+    look();
+  });
   sw.addEventListener("change", () => {
     on = sw.checked;
     set("meterOn", on);

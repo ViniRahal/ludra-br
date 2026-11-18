@@ -51,8 +51,18 @@ pub struct Boss {
     pub aggro_me: bool,
 }
 
+/// Who the program has found you are playing (after a teleport or a login).
+#[derive(Debug, Clone, Serialize, PartialEq, Default)]
+pub struct Me {
+    pub name: String,
+    pub class: String,
+    pub cp: i64,
+    pub gs: i32,
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq, Default)]
 pub struct View {
+    pub me: Option<Me>,
     pub target: String,
     pub target_id: i32,
     pub time_ms: i64,
@@ -176,7 +186,19 @@ impl Meter {
             };
             Boss { id: boss_id, stagger: self.storage.stagger_pct(boss_id).map(|v| (v * 10.0).round() / 10.0), aggro: name, aggro_class: class, aggro_me: aggro.is_some() && aggro == me }
         });
+        let lp = self.storage.local_profile();
+        let me_info = lp.name.filter(|n| !n.trim().is_empty()).map(|name| Me {
+            name: name.trim().to_string(),
+            class: match lp.class.map(|c| format!("{c:?}").to_lowercase()).as_deref() {
+                Some("elementalist") => "spiritmaster".to_string(),
+                Some(c) => c.to_string(),
+                None => String::new(),
+            },
+            cp: lp.combat_power.unwrap_or(0),
+            gs: lp.gear_score.unwrap_or(0),
+        });
         View {
+            me: me_info,
             target: d.target_name.clone(),
             target_id: d.target_id,
             time_ms: d.battle_time,

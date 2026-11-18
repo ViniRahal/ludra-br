@@ -15,6 +15,7 @@
     <div class="meter"></div>
     <script src="a2.js"></script>
     <script src="meterview.js"></script>
+    <script src="arrange.js"></script>
     <script>
       // The meter over the game: drawn from what the program reads, moved by
       // dragging while unlocked, a double-click opens the settings.
@@ -23,6 +24,9 @@
       let view = null;
       function draw() {
         renderMeter(box, view);
+        // Out of a fight, shown only while the player is placing it.
+        const fight = !!(view && view.rows && view.rows.length);
+        box.style.display = fight || (arrange.on && !document.body.classList.contains("locked")) ? "" : "none";
         const r = box.getBoundingClientRect();
         T && T.core.invoke("overlay_areas", { areas: [{ x: r.left, y: r.top, width: r.width, height: r.height }] });
       }
@@ -30,8 +34,16 @@
         view = e.payload;
         draw();
       });
-      T && T.event.listen("meter-look", (e) => box.style.setProperty("--o", String(e.payload.opacity)));
-      T && T.event.listen("locked", (e) => document.body.classList.toggle("locked", !!e.payload));
+      T && T.event.listen("meter-look", (e) => {
+        const p = e.payload || {};
+        box.style.setProperty("--o", String(p.opacity));
+        box.style.transformOrigin = "0 0";
+        box.style.transform = p.scale && p.scale !== 1 ? `scale(${p.scale})` : "";
+        box.style.opacity = String(p.alpha ?? 1);
+        draw();
+      });
+      T && T.event.listen("locked", (e) => { document.body.classList.toggle("locked", !!e.payload); draw(); });
+      arrange.listen(draw);
       let press = null, last = 0;
       box.addEventListener("mousedown", (e) => {
         if (e.button !== 0 || document.body.classList.contains("locked")) return;
@@ -55,7 +67,7 @@
         } else last = now;
       });
       document.addEventListener("contextmenu", (e) => e.preventDefault());
-      T && T.core.invoke("overlay_locked").then((v) => document.body.classList.toggle("locked", !!v));
+      T && T.core.invoke("overlay_locked").then((v) => { document.body.classList.toggle("locked", !!v); draw(); });
       draw();
     </script>
   </body>

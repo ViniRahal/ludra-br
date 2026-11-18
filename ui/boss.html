@@ -7,6 +7,7 @@
   </head>
   <body>
     <div class="panel t-moldura"></div>
+    <script src="arrange.js"></script>
     <script src="bossview.js"></script>
     <script>
       // The boss panel over the game: the boss's HP from the settings window
@@ -15,17 +16,22 @@
       const T = window.__TAURI__;
       let live = null, view = null, locked = false;
       function draw() {
-        renderBoss(box, live, view, { preview: !locked });
+        renderBoss(box, live, view, { preview: !locked && arrange.on });
         const r = box.getBoundingClientRect();
         T && T.core.invoke("overlay_areas", { areas: [{ x: r.left, y: r.top, width: Math.max(1, r.width), height: Math.max(1, r.height) }] });
       }
       setInterval(draw, 250);
+      arrange.listen(draw);
       if (T) {
         T.event.listen("boss-live", (e) => { live = e.payload; draw(); });
         T.event.listen("meter", (e) => { view = e.payload; draw(); });
         T.event.listen("boss-look", (e) => {
           const t = (e.payload && e.payload.theme) || "moldura";
           box.className = `panel t-${t}`;
+          const p = e.payload || {};
+          box.style.transformOrigin = "0 0";
+          box.style.transform = p.scale && p.scale !== 1 ? `scale(${p.scale})` : "";
+          box.style.opacity = String(p.alpha ?? 1);
           draw();
         });
         T.event.listen("locked", (e) => { locked = !!e.payload; document.body.classList.toggle("locked", locked); draw(); });
