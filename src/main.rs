@@ -93,6 +93,55 @@ fn over_game(app: &tauri::AppHandle, label: &str) -> Option<WebviewWindow> {
     OVER_GAME.contains(&label).then(|| app.get_webview_window(label)).flatten()
 }
 
+/// For the overlay editor: the screen the game is on, and where each box
+/// over it is (its visible part, in screen pixels).
+#[tauri::command]
+fn overlay_layout(app: tauri::AppHandle, state: tauri::State<'_, Arc<App>>) -> serde_json::Value {
+    let mon = app
+        .get_webview_window("meter")
+        .and_then(|w| w.current_monitor().ok().flatten())
+        .or_else(|| app.primary_monitor().ok().flatten());
+    let (mx, my, mw, mh) = mon.as_ref().map(|m| (m.position().x, m.position().y, m.size().width as i32, m.size().height as i32)).unwrap_or((0, 0, 1920, 1080));
+    let areas = state.areas.lock();
+    let mut boxes = Vec::new();
+    for label in OVER_GAME {
+        let Some(w) = app.get_webview_window(label) else { continue };
+        let Ok(p) = w.outer_position() else { continue };
+        let s = w.scale_factor().unwrap_or(1.0);
+        let fallback = match label { "overlay" => (420.0, 110.0), "boss" => (440.0, 130.0), _ => (390.0, 180.0) };
+        let (mut x0, mut y0, mut x1, mut y1) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
+        for a in areas.get(label).map(|v| v.as_slice()).unwrap_or(&[]) {
+            if a.width <= 2.0 || a.height <= 2.0 {
+                continue;
+            }
+            x0 = x0.min(a.x);
+            y0 = y0.min(a.y);
+            x1 = x1.max(a.x + a.width);
+            y1 = y1.max(a.y + a.height);
+        }
+        let (ox, oy, bw, bh) = if x0 == f64::MAX { (0.0, 0.0, fallback.0, fallback.1) } else { (x0, y0, x1 - x0, y1 - y0) };
+        boxes.push(serde_json::json!({
+            "label": label,
+            "x": p.x + (ox * s) as i32,
+            "y": p.y + (oy * s) as i32,
+            "w": (bw * s) as i32,
+            "h": (bh * s) as i32,
+            "dx": (ox * s) as i32,
+            "dy": (oy * s) as i32,
+            "visible": w.is_visible().unwrap_or(false),
+        }));
+    }
+    serde_json::json!({ "monitor": { "x": mx, "y": my, "w": mw, "h": mh }, "boxes": boxes })
+}
+
+/// The editor moved a box: its window goes there (screen pixels, window corner).
+#[tauri::command]
+fn overlay_move(app: tauri::AppHandle, label: String, x: i32, y: i32) {
+    if let Some(w) = over_game(&app, &label) {
+        let _ = w.set_position(PhysicalPosition::new(x, y));
+    }
+}
+
 #[tauri::command]
 fn status(state: tauri::State<'_, Arc<App>>) -> Status {
     state.status.lock().clone()
@@ -429,7 +478,7 @@ fn main() {
     let state = Arc::new(App { status: Mutex::new(Status { capture: "starting".into(), ..Default::default() }), locked: Mutex::new(false), areas: Mutex::new(HashMap::new()), focused: Mutex::new(HashSet::new()), hotkey: Mutex::new(String::new()) });
     tauri::Builder::default()
         .manage(state.clone())
-        .invoke_handler(tauri::generate_handler![status, overlay_show, overlay_hide, overlay_lock, overlay_locked, overlay_drag, overlay_areas, show_main, open_npcap, arranging, update_now, update_download, update_restart, hotkey_label])
+        .invoke_handler(tauri::generate_handler![status, overlay_show, overlay_hide, overlay_lock, overlay_locked, overlay_drag, overlay_areas, show_main, open_npcap, arranging, update_now, update_download, update_restart, hotkey_label, overlay_layout, overlay_move])
         .setup(move |app| {
             let handle = app.handle().clone();
             for label in OVER_GAME {

@@ -94,3 +94,14 @@ input[type="color"] { width: 44px; height: 26px; border: 0; background: none; }
 .mrow input[type="number"]:disabled { background: none; border-color: transparent; color: var(--text); text-align: right; opacity: 1; }
 [data-pane="mec"] input[type="checkbox"]:disabled, [data-pane="mec"] select:disabled { opacity: 0.75; }
 .updateBtn[hidden] { display: none; }
+.editor { padding: 12px; }
+.screen { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 8px; background: #07090c; border: 1px solid var(--line); overflow: hidden; touch-action: none; }
+.screen .grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px); background-size: calc(100% / 12) calc(100% / 12); pointer-events: none; }
+.obox { position: absolute; box-sizing: border-box; padding: 3px 6px; border-radius: 4px; border: 1px solid var(--c); background: color-mix(in srgb, var(--c) 18%, rgba(10, 12, 16, 0.85)); color: #fff; font-size: 11px; line-height: 1.2; cursor: grab; overflow: hidden; user-select: none; }
+.obox b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.obox small { color: rgba(255, 255, 255, 0.6); }
+.obox.off { border-style: dashed; opacity: 0.7; }
+.obox.dragging { cursor: grabbing; box-shadow: 0 0 0 2px var(--c); z-index: 2; }
+.editorFoot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+.snapLab { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--dim); }
+.snapLab input { width: 16px; height: 16px; }
