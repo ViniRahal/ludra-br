@@ -1,10 +1,10 @@
 # Ludra BR
 
-Avisos das mecânicas do **Ludra** (Abyssal Forge) e das dungeons **Draupnir** e **Urugugu** (AION 2) em português, com texto grande na tela e voz, painel do boss e medidor de dano.
+Avisos das mecânicas do **Ludra** (Abyssal Forge) (AION 2) em português, com texto grande na tela e voz, painel do boss e medidor de dano.
 
 ## Baixar
 
-**[Baixar o instalador para Windows](https://github.com/ViniRahal/ludra-br/raw/main/download/LudraBR-Instalador.exe)** (versão 0.5.0, cerca de 1,6 MB)
+**[Baixar o instalador para Windows](https://github.com/ViniRahal/ludra-br/raw/main/download/LudraBR-Instalador.exe)** (versão 0.5.1, cerca de 1,6 MB)
 
 1. Instale o **Npcap**: https://npcap.com/#download. Quem já usa Questlog, A2Tools ou outro medidor de DPS já tem.
 2. Abra o instalador. Se o Windows mostrar "O Windows protegeu o computador", clique em **Mais informações** e depois em **Executar assim mesmo**. O aviso aparece porque o programa ainda não tem assinatura digital.
@@ -23,11 +23,6 @@ Avisos das mecânicas do **Ludra** (Abyssal Forge) e das dungeons **Draupnir** e
 | Ludra da Eternidade | Orbes 90%, Arena diminui 85%, Bingo 1 50%, Zikel 45%, Cores 33%, Bingo 2 25%, Círculos 10%; enrage 10 min | Bingo, Círculos, Orbes |
 | Rahu da Disjunção | Rahu no centro 75%, Arena em 4 50%, Hora de comer 25% | Roda do Tormento, Hora de comer |
 | Asas Abissais Ketu | Olhos 50% | Olhos, Pedras da Alma, Esconde-esconde |
-| Lakshmi (Draupnir) | Matem o curandeiro 50% | |
-| Bakarma (Draupnir) | Teleporte 75%, Teleporte 2 35% | |
-| Raur (Urugugu) | Reflexo: parem de bater 70% e 30% | |
-| Urahum (Urugugu) | Mais rápido 65% | |
-| Auldor (Urugugu) | Juntem no marcado 75% e 30% | |
 
 As porcentagens vêm dos guias do servidor global e podem ser ajustadas no programa.
 
