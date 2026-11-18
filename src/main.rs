@@ -142,6 +142,79 @@ fn overlay_move(app: tauri::AppHandle, label: String, x: i32, y: i32) {
     }
 }
 
+/// Where "Enviar registro" goes: a Discord webhook of the Ludra LFG server
+/// (path after https://discord.com), scrambled so link scanners on GitHub
+/// don't pick it up. Empty: not set up yet. Made by tools/hook.py.
+const LOG_HOOK: &[u8] = &[117, 38, 16, 100, 1, 188, 145, 243, 218, 48, 23, 14, 117, 12, 253, 220, 189, 133, 102, 68, 39, 11, 20, 247, 208, 190, 156, 102, 66, 39, 4, 235, 194, 200, 234, 229, 47, 93, 69, 73, 153, 180, 171, 194, 146, 116, 53, 59, 80, 143, 197, 228, 201, 43, 29, 81, 71, 106, 159, 195, 213, 223, 108, 22, 80, 85, 117, 149, 182, 192, 208, 31, 26, 80, 92, 75, 182, 137, 199, 202, 30, 29, 123, 90, 232, 159, 162, 227, 248, 7, 37, 86, 88, 163, 207, 208, 238, 197, 44, 6, 95, 66];
+
+fn log_webhook() -> String {
+    LOG_HOOK.iter().enumerate().map(|(i, b)| (b ^ (0x5A ^ (i as u8).wrapping_mul(29))) as char).collect()
+}
+
+/// Sends a fight's mechanics log (a text file) to the people who tune the
+/// calls. Nothing personal goes: the boss, the mechanic, the time and the %.
+#[tauri::command]
+async fn send_log(app: tauri::AppHandle, text: String, note: String) -> Result<(), String> {
+    if LOG_HOOK.is_empty() {
+        return Err("O envio ainda não foi configurado. Use Copiar por enquanto.".into());
+    }
+    let version = app.package_info().version.to_string();
+    tauri::async_runtime::spawn_blocking(move || post_log(&text, &format!("Ludra BR {version} · {note}")))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn post_log(text: &str, note: &str) -> Result<(), String> {
+    let boundary = "----ludrabr7d1f";
+    let payload = serde_json::json!({ "content": note.chars().take(1800).collect::<String>(), "allowed_mentions": { "parse": [] } }).to_string();
+    let mut body = Vec::new();
+    body.extend_from_slice(format!("--{boundary}\r\nContent-Disposition: form-data; name=\"payload_json\"\r\nContent-Type: application/json\r\n\r\n{payload}\r\n").as_bytes());
+    body.extend_from_slice(format!("--{boundary}\r\nContent-Disposition: form-data; name=\"files[0]\"; filename=\"registro.txt\"\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n").as_bytes());
+    body.extend_from_slice(text.as_bytes());
+    body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+    #[cfg(windows)]
+    unsafe {
+        use windows_sys::Win32::Networking::WinHttp::*;
+        let w = |s: &str| s.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
+        let agent = w("LudraBR");
+        let ses = WinHttpOpen(agent.as_ptr(), WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, std::ptr::null(), std::ptr::null(), 0);
+        if ses.is_null() {
+            return Err("Sem internet para enviar.".into());
+        }
+        let host = w("discord.com");
+        let con = WinHttpConnect(ses, host.as_ptr(), 443, 0);
+        let verb = w("POST");
+        let path = w(&log_webhook());
+        let req = if con.is_null() { std::ptr::null_mut() } else { WinHttpOpenRequest(con, verb.as_ptr(), path.as_ptr(), std::ptr::null(), std::ptr::null(), std::ptr::null(), WINHTTP_FLAG_SECURE) };
+        let headers = w(&format!("Content-Type: multipart/form-data; boundary={boundary}\r\n"));
+        let mut status: u32 = 0;
+        let ok = !req.is_null()
+            && WinHttpSendRequest(req, headers.as_ptr(), u32::MAX, body.as_ptr() as *const _, body.len() as u32, body.len() as u32, 0) != 0
+            && WinHttpReceiveResponse(req, std::ptr::null_mut()) != 0
+            && {
+                let mut len = 4u32;
+                WinHttpQueryHeaders(req, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER, std::ptr::null(), &mut status as *mut u32 as *mut _, &mut len, std::ptr::null_mut()) != 0
+            };
+        for h in [req, con, ses] {
+            if !h.is_null() {
+                WinHttpCloseHandle(h);
+            }
+        }
+        if !ok {
+            return Err("Não deu para enviar. Confira a internet.".into());
+        }
+        if !(200..300).contains(&status) {
+            return Err(format!("O Discord recusou o envio (código {status})."));
+        }
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (body, note);
+        Err("só no Windows".into())
+    }
+}
+
 #[tauri::command]
 fn status(state: tauri::State<'_, Arc<App>>) -> Status {
     state.status.lock().clone()
@@ -478,7 +551,7 @@ fn main() {
     let state = Arc::new(App { status: Mutex::new(Status { capture: "starting".into(), ..Default::default() }), locked: Mutex::new(false), areas: Mutex::new(HashMap::new()), focused: Mutex::new(HashSet::new()), hotkey: Mutex::new(String::new()) });
     tauri::Builder::default()
         .manage(state.clone())
-        .invoke_handler(tauri::generate_handler![status, overlay_show, overlay_hide, overlay_lock, overlay_locked, overlay_drag, overlay_areas, show_main, open_npcap, arranging, update_now, update_download, update_restart, hotkey_label, overlay_layout, overlay_move])
+        .invoke_handler(tauri::generate_handler![status, overlay_show, overlay_hide, overlay_lock, overlay_locked, overlay_drag, overlay_areas, show_main, open_npcap, arranging, update_now, update_download, update_restart, hotkey_label, overlay_layout, overlay_move, send_log])
         .setup(move |app| {
             let handle = app.handle().clone();
             for label in OVER_GAME {

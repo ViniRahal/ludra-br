@@ -85,6 +85,7 @@ const engine = window.LudraEngine.createEngine(DATA, {
     send();
   },
   state(s) {
+    if (live && !s) window.fightEnded?.();
     live = s;
     // Comes with each of the boss's HP records (many a second): the page and
     // the widget only when what they show changes.
@@ -480,3 +481,47 @@ if (synth) {
   placeWidget();
   a2.ready();
 })();
+
+// ---- Sending the log to the people who tune the calls -------------------
+
+const logLines = (from) =>
+  engine
+    .getLog()
+    .filter((e) => e.at > from)
+    .map((e) => `${new Date(e.at).toISOString()}\t${BOSS_NAME(e.boss)}\t${e.what?.title || "?"}${e.what?.n > 1 ? ` #${e.what.n}` : ""}\t${e.pct ?? ""}`);
+let sentUpTo = Number(localStorage.getItem("ludra:sentUpTo")) || 0;
+async function sendLog(auto) {
+  const lines = logLines(auto ? sentUpTo : 0);
+  if (!lines.length) {
+    if (!auto) $(".learnNote").textContent = "Nada novo no registro para enviar.";
+    return;
+  }
+  const btn = $(".sendLog");
+  btn.disabled = true;
+  $(".learnNote").textContent = "Enviando…";
+  try {
+    await window.__TAURI__.core.invoke("send_log", { text: lines.join("\n"), note: `${lines.length} linhas${auto ? " (automático)" : ""}` });
+    sentUpTo = Math.max(...engine.getLog().map((e) => e.at), sentUpTo);
+    try {
+      localStorage.setItem("ludra:sentUpTo", String(sentUpTo));
+    } catch {}
+    $(".learnNote").textContent = "Enviado. Valeu por ajudar!";
+  } catch (err) {
+    $(".learnNote").textContent = String(err);
+  }
+  btn.disabled = false;
+}
+$(".sendLog").addEventListener("click", () => sendLog(false));
+{
+  const sw = $(".autoSend");
+  sw.checked = localStorage.getItem("ludra:autoSend") === "1";
+  sw.addEventListener("change", () => {
+    try {
+      localStorage.setItem("ludra:autoSend", sw.checked ? "1" : "0");
+    } catch {}
+  });
+}
+// The boss gone (dead, or the group wiped): a few seconds on, the new lines go.
+window.fightEnded = () => {
+  if ($(".autoSend").checked) setTimeout(() => sendLog(true), 5000);
+};
