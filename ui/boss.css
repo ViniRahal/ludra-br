@@ -92,6 +92,6 @@ body.locked .panel { cursor: default; }
 .bDiff.hard { background: #c2382f; color: #fff; }
 .bDiff.normal { background: rgba(255,255,255,.18); color: #fff; }
 /* Hover, unlocked: the box shows it can be dragged (as in Questlog). */
-body:not(.locked) .panel:hover { outline: 1px dashed rgba(255, 255, 255, 0.7); outline-offset: 2px; }
-body:not(.locked) .panel:hover::after { content: "✥ arraste para mover"; position: absolute; top: -2px; right: 8px; font-size: 10px; color: rgba(255, 255, 255, 0.85); }
+body:not(.locked) .panel:hover, body.hover:not(.locked) .panel { outline: 1px dashed rgba(255, 255, 255, 0.7); outline-offset: 2px; }
+body:not(.locked) .panel:hover::after, body.hover:not(.locked) .panel::after { content: "✥ arraste para mover"; position: absolute; top: -2px; right: 8px; font-size: 10px; color: rgba(255, 255, 255, 0.85); }
 .panel { position: relative; }

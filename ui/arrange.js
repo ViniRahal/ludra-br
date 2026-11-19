@@ -24,5 +24,15 @@
   if (T) {
     T.event.listen("arrange", (e) => set(!!e.payload));
     T.core.invoke("arranging").then((v) => set(!!v)).catch(() => {});
+    // The mouse is over this box (read by the program, since with the game in
+    // front the window does not always see it): show that it can be moved.
+    let me = "";
+    try {
+      me = (T.webviewWindow && T.webviewWindow.getCurrentWebviewWindow().label) || window.__TAURI_INTERNALS__?.metadata?.currentWebview?.label || "";
+    } catch {}
+    T.event.listen("hover", (e) => {
+      const p = e.payload || {};
+      if (p.label === me) document.body.classList.toggle("hover", !!p.on);
+    });
   }
 })();

@@ -255,29 +255,61 @@ fn overlay_areas(window: tauri::Window, state: tauri::State<'_, Arc<App>>, areas
 }
 
 /// Unlocked, a window over the game takes clicks on its boxes only (to move
-/// it), and the rest of it lets them through to the game.
+/// it), and the rest of it lets them through to the game. The hover and the
+/// drag are read from the mouse itself, not from the window's events: with
+/// the game in front, the window does not always get them.
 fn follow_cursor(app: tauri::AppHandle, state: Arc<App>) {
     std::thread::spawn(move || {
         let mut ignoring: HashMap<&str, bool> = HashMap::new();
+        let mut hovering: HashMap<&str, bool> = HashMap::new();
+        // (window, cursor at the press, window at the press, moved)
+        let mut drag: Option<(&str, (f64, f64), (i32, i32), bool)> = None;
+        let mut was_down = false;
         loop {
-            std::thread::sleep(Duration::from_millis(60));
+            let busy = drag.is_some() || hovering.values().any(|v| *v);
+            std::thread::sleep(Duration::from_millis(if busy { 12 } else { 50 }));
+            let down = left_down();
+            let press = down && !was_down;
+            was_down = down;
+            let cursor = app.cursor_position().ok();
+            let locked = *state.locked.lock();
+            if let Some((label, c0, p0, moved)) = drag.as_mut() {
+                if !down || locked {
+                    drag = None;
+                } else if let (Some(c), Some(w)) = (cursor, app.get_webview_window(label)) {
+                    let (dx, dy) = (c.x - c0.0, c.y - c0.1);
+                    if *moved || dx.abs() + dy.abs() >= 4.0 {
+                        *moved = true;
+                        let _ = w.set_position(PhysicalPosition::new(p0.0 + dx as i32, p0.1 + dy as i32));
+                    }
+                }
+                continue;
+            }
             for label in OVER_GAME {
                 let Some(w) = app.get_webview_window(label) else { continue };
                 if !w.is_visible().unwrap_or(false) {
                     ignoring.remove(label);
+                    hovering.remove(label);
                     continue;
                 }
-                let ignore = if *state.locked.lock() {
-                    true
-                } else {
-                    match (app.cursor_position(), w.outer_position(), w.scale_factor()) {
-                        (Ok(c), Ok(p), Ok(s)) => {
-                            let (x, y) = ((c.x - p.x as f64) / s, (c.y - p.y as f64) / s);
-                            !state.areas.lock().get(label).is_some_and(|v| v.iter().any(|a| x >= a.x && y >= a.y && x < a.x + a.width && y < a.y + a.height))
-                        }
-                        _ => false,
+                let over = match (cursor, w.outer_position(), w.scale_factor()) {
+                    (Some(c), Ok(p), Ok(s)) => {
+                        let (x, y) = ((c.x - p.x as f64) / s, (c.y - p.y as f64) / s);
+                        state.areas.lock().get(label).is_some_and(|v| v.iter().any(|a| x >= a.x && y >= a.y && x < a.x + a.width && y < a.y + a.height))
                     }
+                    _ => false,
                 };
+                let hover = over && !locked;
+                if hovering.get(label) != Some(&hover) {
+                    hovering.insert(label, hover);
+                    let _ = app.emit("hover", serde_json::json!({ "label": label, "on": hover }));
+                }
+                if hover && press {
+                    if let (Some(c), Ok(p)) = (cursor, w.outer_position()) {
+                        drag = Some((label, (c.x, c.y), (p.x, p.y), false));
+                    }
+                }
+                let ignore = !hover;
                 if ignoring.get(label) != Some(&ignore) {
                     ignoring.insert(label, ignore);
                     let _ = w.set_ignore_cursor_events(ignore);
@@ -287,11 +319,20 @@ fn follow_cursor(app: tauri::AppHandle, state: Arc<App>) {
     });
 }
 
+#[cfg(windows)]
+fn left_down() -> bool {
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON};
+    unsafe { (GetAsyncKeyState(VK_LBUTTON as i32) as u16 & 0x8000) != 0 }
+}
+#[cfg(not(windows))]
+fn left_down() -> bool {
+    false
+}
+
 #[tauri::command]
 fn overlay_drag(window: tauri::Window) {
-    if OVER_GAME.contains(&window.label()) {
-        let _ = window.start_dragging();
-    }
+    // The mouse thread moves the boxes (follow_cursor).
+    let _ = window;
 }
 
 #[tauri::command]

@@ -28,3 +28,5 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: transparent;
 .stats { font-size: calc(var(--s) * 0.3); font-weight: 600; color: #fff; min-height: 1em; font-variant-numeric: tabular-nums; }
 .call.me { color: #fff; background: rgba(170, 30, 30, 0.85); border-radius: 10px; animation: mePulse 0.8s ease-in-out 4; }
 @keyframes mePulse { 50% { transform: scale(1.06); } }
+
+body.hover .box { outline: 1px dashed rgba(255, 255, 255, 0.7); outline-offset: 2px; cursor: grab; }
