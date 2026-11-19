@@ -575,7 +575,7 @@ const logLines = (from) =>
   engine
     .getLog()
     .filter((e) => e.at > from)
-    .map((e) => `${new Date(e.at).toISOString()}\t${BOSS_NAME(e.boss)}\t${e.what?.title || "?"}${e.what?.n > 1 ? ` #${e.what.n}` : ""}\t${e.pct ?? ""}\t${e.since != null ? (e.since / 1000).toFixed(1) + "s" : ""}`);
+    .map((e) => `${new Date(e.at).toISOString()}\t${BOSS_NAME(e.boss)}\t${e.what?.title || "?"}${e.what?.n > 1 ? ` #${e.what.n}` : ""}\t${e.pct ?? ""}\t${e.since != null ? (e.since / 1000).toFixed(1) + "s" : ""}\t${e.diff || ""}\t${e.code || ""}`);
 let sentUpTo = Number(localStorage.getItem("ludra:sentUpTo")) || 0;
 async function sendLog(auto) {
   const lines = logLines(auto ? sentUpTo : 0);

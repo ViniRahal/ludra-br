@@ -46,3 +46,26 @@ assert.equal(st.key, "reator");
 assert.equal(st.diff, "hard");
 assert.equal(Math.round(st.pct), 90);
 console.log("anchor: ok");
+
+// 19/11 registro: Ludra at 44% calls something that casts Ketu's skill 1801951
+// over and over (and Ludra copies at full HP). The fight stays on Ludra.
+{
+  const c4 = [];
+  const e4 = createEngine(DATA, { now: () => t, call: (c) => c4.push(c), state: (s) => (st = s) });
+  e4.spawn({ entity: 40, max: 4e8, code: 2301014 });
+  for (let p = 99; p >= 44; p -= 5) { t += 2000; e4.hp({ entity: 40, kind: 2, count: 1, res: 0, hp: 4e8 * p / 100 }, t); }
+  e4.spawn({ entity: 41, max: 3e7, code: 2920671 });
+  for (let i = 0; i < 8; i++) {
+    t += 1000;
+    e4.hp({ entity: 41, kind: 2, count: 1, res: 0, hp: 3e7 }, t);
+    e4.cast({ caster: 41, skill: 1801951 }, t, "cast");
+    e4.cast({ caster: 4400 + i, skill: 1801951 }, t, "cast");
+    e4.spawn({ entity: 50 + i, max: 4e8, code: 2921506 });
+    e4.hp({ entity: 50 + i, kind: 2, count: 1, res: 0, hp: 4e8 }, t);
+    e4.cast({ caster: 50 + i, skill: 1803395 }, t, "cast");
+  }
+  assert.equal(st.key, "ludra", "Ketu's skill does not take Ludra's fight");
+  assert.equal(e4._boss().id, 40);
+  assert.ok(st.pct < 50, "no jump back to 100%");
+  console.log("anchor 19/11: ok");
+}

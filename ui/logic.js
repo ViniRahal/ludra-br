@@ -18,7 +18,7 @@
   const KEEP_MS = 20_000; // a monster's last HP, kept this long until it turns out to be the boss
   const STALE_MS = 3_000; // events older than this (queued while the window was shut) are not called
   const RESET_PCT = 98; // back above this after going under 90: a wipe, a new pull
-  const MAX_LOG = 200;
+  const MAX_LOG = 3000;
   const GONE_MS = 60_000; // no HP at all this long: the fight is over (a boss can sit still through a phase)
   const LOST_MS = 15_000; // no HP from the boss this long: gone (a reset that respawned it)
   const USE_AFTER_CAST_MS = 10_000; // a 02 38 this long after the same skill's 09 38: the same cast going off
