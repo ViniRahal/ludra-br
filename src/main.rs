@@ -483,8 +483,9 @@ fn start_capture(app: tauri::AppHandle, state: Arc<App>) {
             let mut flows = flows::Flows::with_meter();
             let mut last_view = ludra_core::meter::View::default();
             let mut last_tick = 0i64;
+            let mut last_view_at = 0i64;
             loop {
-                let seg = match rx.recv_timeout(Duration::from_millis(1000)) {
+                let seg = match rx.recv_timeout(Duration::from_millis(250)) {
                     Ok(s) => Some(s),
                     Err(RecvTimeoutError::Timeout) => None,
                     Err(RecvTimeoutError::Disconnected) => {
@@ -525,6 +526,10 @@ fn start_capture(app: tauri::AppHandle, state: Arc<App>) {
                     if let Some(st) = flows.tick(now) {
                         changed = Some(st);
                     }
+                }
+                // The meter 4 times a second, so its numbers move smoothly.
+                if now - last_view_at >= 250 {
+                    last_view_at = now;
                     if let Some(meter) = flows.meter.as_mut() {
                         let view = meter.view(now);
                         if view != last_view {
@@ -562,10 +567,11 @@ fn main() {
                 }
                 let h2 = handle.clone();
                 let s2 = state.clone();
+                // Only the settings window shows the empty boxes (a box over the
+                // game kept "focused" once a click landed on it, and its empty
+                // box then stayed over the game).
+                let _ = (&h2, &s2);
                 w.on_window_event(move |e| {
-                    if let tauri::WindowEvent::Focused(f) = e {
-                        set_focus(&h2, &s2, label, *f);
-                    }
                     if let tauri::WindowEvent::Moved(pos) = e {
                         if let Some(f) = place_file(&h2, label) {
                             let _ = std::fs::create_dir_all(f.parent().unwrap());
@@ -577,7 +583,7 @@ fn main() {
             if let Some(m) = handle.get_webview_window("main") {
                 let h3 = handle.clone();
                 let s3 = state.clone();
-                if m.is_focused().unwrap_or(true) {
+                if m.is_focused().unwrap_or(false) {
                     s3.focused.lock().insert("main".into());
                 }
                 m.on_window_event(move |e| {

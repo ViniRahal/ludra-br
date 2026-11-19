@@ -86,7 +86,12 @@
       const row = el("div", `mRow${r.me ? " me" : ""}`);
       const color = COLORS[r.class] || "#8892a6";
       row.style.setProperty("--c", color);
-      row.style.setProperty("--w", `${Math.max(2, (r.total / top1) * 100)}%`);
+      // The bar glides from where it was to where it is now (4 updates a second).
+      const w = `${Math.max(2, (r.total / top1) * 100)}%`;
+      const widths = (box.__w ||= new Map());
+      row.style.setProperty("--w", widths.get(r.id) || w);
+      widths.set(r.id, w);
+      requestAnimationFrame(() => row.style.setProperty("--w", w));
       const name = el("span", "mName");
       name.append(el("span", "n", r.name));
       if (r.cp > 0) name.append(el("span", "cp", short(r.cp)));

@@ -40,3 +40,7 @@
 .mPing.good { color: #5ee08a; }
 .mPing.mid { color: #f0c24a; }
 .mPing.bad { color: #ff6a6a; }
+.mRow::before { transition: width 0.3s linear; }
+/* Hover, unlocked: the box shows it can be dragged (as in Questlog). */
+body:not(.locked) .meter:hover { outline: 1px dashed rgba(255, 255, 255, 0.7); outline-offset: 2px; opacity: 1 !important; }
+body:not(.locked) .meter:hover .mFoot::before { content: "✥ arraste para mover"; margin-right: auto; color: rgba(255, 255, 255, 0.85); }

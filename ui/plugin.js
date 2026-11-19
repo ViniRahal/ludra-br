@@ -146,6 +146,7 @@ window.ludraDeaths = [];
 window.__TAURI__?.event.listen("meter", (e) => {
   const v = e.payload || {};
   engine.setMe(v.me_id || 0);
+  if (v.target_id) engine.follow({ id: v.target_id, boss: !!v.target_boss, code: v.target_code, name: v.target, hp: v.target_hp, max: v.target_pct > 0 ? Math.round(v.target_hp / (v.target_pct / 100)) : 0 });
   const key = live && live.key;
   const st = v.boss && v.boss.stagger;
   if (key && st != null && live.cur > 0) {
@@ -162,7 +163,7 @@ window.__TAURI__?.event.listen("meter", (e) => {
   // Only Ludra, and only before the first Bingo: after it he stays at the
   // arena's edge facing the group, with no tail swipe.
   const bingoSeen = key === "ludra" && engine.getLog().some((x) => x.boss === "ludra" && x.what && x.what.skill === 1803040 && x.at >= (live.pullAt || 0));
-  const swipes = key === "ludra" && !bingoSeen && live.pct != null && live.pct > 50;
+  const swipes = key === "ludra" && !bingoSeen && (live.low ?? live.pct ?? 100) > 50;
   const ag = key && live.cur > 0 && v.boss ? v.boss.aggro || "" : "";
   if (swipes && ag && lastAggro && ag !== lastAggro && Date.now() - lastBell > 1000 && prefs.enabled && !prefs.off[`${key}:aggro`]) {
     lastBell = Date.now();

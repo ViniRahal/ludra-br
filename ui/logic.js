@@ -19,6 +19,7 @@
   const STALE_MS = 3_000; // events older than this (queued while the window was shut) are not called
   const RESET_PCT = 98; // back above this after going under 90: a wipe, a new pull
   const MAX_LOG = 200;
+  const GONE_MS = 60_000; // no HP at all this long: the fight is over (a boss can sit still through a phase)
   const LOST_MS = 15_000; // no HP from the boss this long: gone (a reset that respawned it)
   const USE_AFTER_CAST_MS = 10_000; // a 02 38 this long after the same skill's 09 38: the same cast going off
 
@@ -128,7 +129,7 @@
 
     function newFight(id, key, hp) {
       const m = maxFor(id, key, hp);
-      boss = { id, key, max: m.max, maxFromPeak: m.fromPeak, cur: hp, pct: 100, low: 100, fired: new Set(), seen: {}, start: now(), hpAt: now(), pullAt: 0, samples: [] };
+      boss = { id, key, anchored: spawnKey.has(id), max: m.max, maxFromPeak: m.fromPeak, cur: hp, pct: 100, low: 100, fired: new Set(), seen: {}, start: now(), hpAt: now(), pullAt: 0, samples: [] };
       if (hp > 0) update(hp, now(), true);
       emitState();
     }
@@ -140,7 +141,8 @@
       hooks.state?.({
         key: boss.key,
         diff: difficulty(),
-        name: b ? b.name : "Chefe",
+        low: boss.max > 0 ? boss.low : 100,
+        name: b ? b.name : targetName || "Chefe",
         short: b ? b.short : "CHEFE",
         pct: boss.max > 0 ? boss.pct : null,
         approx: boss.maxFromPeak,
@@ -232,9 +234,11 @@
       // A boss known by its spawn (a dungeon's, far under a raid's HP): its fight.
       const coded = spawnKey.get(id);
       if (coded) {
+        if (holding() && boss.max > 0 && boss.pct < 99) return; // another boss's HP while ours is being fought
         if (!boss || boss.id !== id) newFight(id, coded, value);
         return;
       }
+      if (holding()) return; // an add or a copy: the fight stays with the boss
       // Players and small monsters: dropped, never kept.
       if (value < data.minBossHp) return;
       npc.set(id, { hp: value, at: t });
@@ -262,10 +266,21 @@
       }
     }
 
+    // The boss being fought is "anchored" when the game told us which boss it
+    // is (its model code, from the spawn or the meter's target). Then nothing
+    // takes the fight from it while it is alive and being hit: not a copy of
+    // the boss (Ludra has some), not an add, not the other PT's boss.
+    const holding = () => boss && boss.anchored && boss.cur > 0 && now() - boss.hpAt < GONE_MS;
+
     function identify(id, key, at) {
       if (boss && boss.id === id) {
-        if (boss.key !== key) name(key, at);
-        return;
+        if (boss.key !== key && !boss.anchored) name(key, at);
+        return boss.key === key;
+      }
+      if (holding()) {
+        if (key === boss.key) return true; // the boss's own mechanic, cast by an effect or a copy
+        if (spawnKey.get(id) !== key) return false; // another boss's skill from something that is no boss here
+        if (boss.max > 0 && boss.pct < 99) return false; // our boss is being fought: stay
       }
       const last = npc.get(id); // kept only for monsters of a boss's size
       if (boss && !last) {
@@ -276,8 +291,9 @@
       }
       // The same boss's skill from a big add, while the boss is still being
       // hit and is bigger: keep the boss.
-      if (boss && last && boss.key === key && boss.cur > 0 && now() - boss.hpAt < LOST_MS && last.hp <= boss.max) return;
+      if (boss && last && boss.key === key && boss.cur > 0 && now() - boss.hpAt < LOST_MS && last.hp <= boss.max) return true;
       newFight(id, key, last ? last.hp : 0);
+      return true;
     }
 
     function logIt(what, at) {
@@ -294,7 +310,8 @@
       const key = bossOfSkill(skill);
       if (!key) return; // not one of ours: dropped
       const id = Number(d.caster);
-      identify(id, key, at);
+      if (identify(id, key, at) === false) return; // not the boss we are fighting
+      if (!boss || boss.key !== key) return;
       const c = bosses[key].casts.find((x) => x.skill === skill);
       if (!c) {
         // A skill with no call yet: logged once per fight, so a raid's log
@@ -479,7 +496,35 @@
     }
 
     // Once a second: the enrage warnings, and the timers refreshed.
+    // The meter's target (A2Tools: the boss the group is hitting, with its name
+    // and HP from the game). It decides which boss this is: a new boss target
+    // starts its fight at once, named by its model code when data.js knows it.
+    let targetName = "";
+    function follow(t) {
+      const id = Number(t && t.id) || 0;
+      if (!id || !t.boss) return;
+      const code = Number(t.code) || 0;
+      if (code) spawnCode.set(id, code);
+      const key = code ? bossOfCode(code) : null;
+      if (key) spawnKey.set(id, key);
+      if (t.max > 0 && !spawnMax.has(id)) spawnMax.set(id, t.max);
+      targetName = t.name || "";
+      if (boss && boss.id === id) {
+        if (key && boss.key !== key) name(key, now());
+        if (!boss.key) emitState();
+        return;
+      }
+      if (!key && holding()) return;
+      newFight(id, key, t.hp > 0 ? t.hp : 0);
+    }
+
     function tick() {
+      // No HP from the boss for a while (dead, reset, or we left): no boss.
+      if (boss && now() - boss.hpAt > GONE_MS) {
+        boss = null;
+        emitState();
+        return;
+      }
       const up = upcoming();
       if (up && up.sure && prefs.castCalls && Number(prefs.prewarn) > 0) {
         const k = `soon:${up.skill}:${up.at}`;
@@ -509,7 +554,7 @@
       emitState();
     }
 
-    return { hp, spawn, cast, buff, tick, setMe, enrageSecs, setPrefs, getLog, setLog, learnThresholds, thresholds, clear, _boss: () => boss };
+    return { hp, spawn, cast, buff, tick, setMe, follow, enrageSecs, setPrefs, getLog, setLog, learnThresholds, thresholds, clear, _boss: () => boss };
   }
 
   root.LudraEngine = { createEngine };

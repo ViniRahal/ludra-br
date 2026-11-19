@@ -12,10 +12,26 @@
 // ("Provação de Ludra" 1803040, "Zona do Trovão" 1803030, ...).
 window.LUDRA_BR = {
   bosses: {
+    // Boss 1: the central reactor (the 10 together). Its mechanics are not in
+    // yet: the panel shows its HP, and the log keeps its skills to learn them.
+    reator: {
+      name: "Reator de Fusão Central",
+      short: "REATOR",
+      codes: [2301008, 2300284],
+      normalCodes: [2301008],
+      hardCodes: [2300284],
+      skills: [],
+      buffs: [],
+      hp: [],
+      casts: [],
+    },
     ludra: {
       name: "Ludra da Eternidade",
       short: "LUDRA",
       codes: [2301014, 2300290],
+      // A2Tools' NPC table: 2301xxx is the Normal sanctuary (600082), 2300xxx the Hard (600083).
+      normalCodes: [2301014],
+      hardCodes: [2300290],
       // Enrage: 10 min, the guides say (not confirmed in the global version). Adjustable.
       enrage: 600,
       // Skill ids that only this boss uses: the first one seen tells the plugin who is who.
@@ -57,6 +73,8 @@ window.LUDRA_BR = {
       name: "Rahu da Disjunção",
       short: "RAHU",
       codes: [2301006, 2300282],
+      normalCodes: [2301006],
+      hardCodes: [2300282],
       skills: [[1802700, 1802999], [18027000, 18029999]],
       buffs: [],
       // The bomb (aion2-meta, aion2vault): a player carries it 20 s (purple
@@ -77,6 +95,8 @@ window.LUDRA_BR = {
       name: "Asas Abissais Ketu",
       short: "KETU",
       codes: [2301007, 2300283],
+      normalCodes: [2301007],
+      hardCodes: [2300283],
       skills: [[1801800, 1801999]],
       buffs: [18019631],
       hp: [

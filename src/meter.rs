@@ -88,6 +88,8 @@ pub struct View {
     /// The target's HP: % left and the HP now (none: not known).
     pub target_pct: Option<f64>,
     pub target_hp: i64,
+    /// The target's model code (which boss, and which difficulty).
+    pub target_code: i32,
     pub time_ms: i64,
     pub dps: f64,
     pub rows: Vec<Row>,
@@ -270,6 +272,7 @@ impl Meter {
             target_boss: d.target_is_boss,
             target_pct: target_hp.map(|h| ((h as f64 / d.target_max_hp as f64) * 1000.0).round() / 10.0),
             target_hp: target_hp.unwrap_or(0),
+            target_code: d.target_mob_code,
             time_ms: d.battle_time,
             dps: rows.iter().map(|r| r.dps).sum(),
             rows,

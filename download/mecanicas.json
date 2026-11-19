@@ -1,11 +1,35 @@
 {
- "version": "2026-11-19 13:00",
+ "version": "2026-11-19 17:31",
  "bosses": {
+  "reator": {
+   "name": "Reator de Fusão Central",
+   "short": "REATOR",
+   "codes": [
+    2301008,
+    2300284
+   ],
+   "normalCodes": [
+    2301008
+   ],
+   "hardCodes": [
+    2300284
+   ],
+   "skills": [],
+   "buffs": [],
+   "hp": [],
+   "casts": []
+  },
   "ludra": {
    "name": "Ludra da Eternidade",
    "short": "LUDRA",
    "codes": [
     2301014,
+    2300290
+   ],
+   "normalCodes": [
+    2301014
+   ],
+   "hardCodes": [
     2300290
    ],
    "enrage": 600,
@@ -122,6 +146,12 @@
     2301006,
     2300282
    ],
+   "normalCodes": [
+    2301006
+   ],
+   "hardCodes": [
+    2300282
+   ],
    "skills": [
     [
      1802700,
@@ -176,6 +206,12 @@
    "short": "KETU",
    "codes": [
     2301007,
+    2300283
+   ],
+   "normalCodes": [
+    2301007
+   ],
+   "hardCodes": [
     2300283
    ],
    "skills": [
