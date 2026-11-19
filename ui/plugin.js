@@ -7,7 +7,7 @@ const DATA = window.LUDRA_BR;
 const DEFAULTS = {
   enabled: true, widget: true, castCalls: true, hpCalls: true, prewarn: "3",
   size: "60", fg: "#ffd84d", bg: "#000000", bgOpacity: 80, showHp: true,
-  speak: true, volume: 100, voiceName: "", rate: "1.15",
+  speak: true, volume: 100, bellVolume: 50, voiceName: "", rate: "1.15",
   thresholds: {}, maxHp: {}, sizes: {}, off: {}, enrage: {},
 };
 let prefs = { ...DEFAULTS };
@@ -62,12 +62,13 @@ function beep(high) {
 }
 // A bell ("plim"): a few sine partials that ring out, made here, no sound file.
 function bell() {
-  if (prefs.volume <= 0) return;
+  const bv = prefs.bellVolume ?? 50;
+  if (bv <= 0) return;
   try {
     audio ||= new (window.AudioContext || window.webkitAudioContext)();
     if (audio.state !== "running") audio.resume().catch(() => {});
     const t = audio.currentTime;
-    const vol = 0.22 * Math.pow(prefs.volume / 100, 2);
+    const vol = 0.22 * Math.pow(bv / 100, 2);
     for (const [f, a, d] of [[1318, 1, 1.4], [2637, 0.45, 0.9], [3951, 0.2, 0.5]]) {
       const o = audio.createOscillator(), g = audio.createGain();
       o.type = "sine";
@@ -412,7 +413,7 @@ function renderLog() {
 
 // ---- Controls ----------------------------------------------------------
 
-const keys = ["enabled", "widget", "castCalls", "hpCalls", "prewarn", "size", "fg", "bg", "bgOpacity", "showHp", "speak", "volume", "voiceName", "rate"];
+const keys = ["enabled", "widget", "castCalls", "hpCalls", "prewarn", "size", "fg", "bg", "bgOpacity", "showHp", "speak", "volume", "bellVolume", "voiceName", "rate"];
 function showPrefs() {
   for (const k of keys) {
     const el = $(`.${k}`);
@@ -427,7 +428,7 @@ for (const k of keys) {
   if (!el) continue;
   el.addEventListener(el.type === "range" || el.type === "color" ? "input" : "change", () => {
     let v = el.type === "checkbox" ? el.checked : el.value;
-    if (k === "volume" || k === "bgOpacity") v = Number(v);
+    if (k === "volume" || k === "bellVolume" || k === "bgOpacity") v = Number(v);
     prefs[k] = v;
     save();
     engine.setPrefs(enginePrefs());
@@ -437,6 +438,7 @@ for (const k of keys) {
   });
 }
 $(".volume").addEventListener("change", () => say("Volume.", true));
+$(".bellVolume").addEventListener("change", () => bell());
 // The voice switch at the top is the same as the one in "Aparência e voz".
 $(".speakTop").addEventListener("change", (e) => {
   prefs.speak = e.target.checked;
