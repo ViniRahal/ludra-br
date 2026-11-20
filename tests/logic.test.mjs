@@ -66,9 +66,9 @@ const before = calls.length;
 t += 1000; hp(LUDRA, MAX * 0.2);
 const fresh = calls.slice(before).filter((c) => c.kind === "hp");
 assert.equal(fresh.length, 1); assert.ok(fresh[0].text.includes("BINGO 2"));
-// second Bingo cast logged as n=2
-t += 20_000; e.cast({ caster: LUDRA, skill: 1803010 }, t, "cast");
-assert.equal(e.getLog().at(-1).what.n, 2);
+// Bingo 2 is its own skill (1803040, seen at 24% on 20/11)
+t += 20_000; e.cast({ caster: LUDRA, skill: 1803040 }, t, "cast");
+assert.equal(e.getLog().at(-1).what.skill, 1803040);
 // stale event (queued 10 s ago): logged, not called
 const c0 = calls.length; e.cast({ caster: LUDRA, skill: 1803030 }, t - 10_000);
 assert.equal(calls.length, c0);

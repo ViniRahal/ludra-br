@@ -1,5 +1,5 @@
 {
- "version": "2026-11-20 14:05",
+ "version": "2026-11-20 14:14",
  "bosses": {
   "reator": {
    "name": "Reator de Fusão Central",
@@ -69,8 +69,8 @@
      "title": "BINGO 2",
      "sub": "Igual ao Bingo 1, mas pulem as ondas antes. Healer: guarde a imunidade.",
      "learn": {
-      "skill": 1803010,
-      "nth": 2
+      "skill": 1803040,
+      "nth": 1
      }
     },
     {
@@ -133,8 +133,8 @@
     },
     {
      "skill": 1803040,
-     "title": "BINGO!",
-     "sub": "Raio revela o quadrado. Todos no azul. Depois, batam tudo.",
+     "title": "BINGO 2",
+     "sub": "Achem o quadrado azul, pulem as ondas. No atordoamento, BATAM TUDO. Healer: guarde a imunidade.",
      "secs": 15
     },
     {

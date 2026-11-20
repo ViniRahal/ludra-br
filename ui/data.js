@@ -52,7 +52,7 @@ window.LUDRA_BR = {
       hp: [
         { id: "bingo1", pct: 50, title: "BINGO 1", sub: "Achem o quadrado azul. No atordoamento, BATAM TUDO.", learn: { skill: 1803010, nth: 1 } },
         { id: "cores", pct: 33, title: "CORES", sub: "Vermelho de um lado, azul do outro. Longe da outra cor." },
-        { id: "bingo2", pct: 25, title: "BINGO 2", sub: "Igual ao Bingo 1, mas pulem as ondas antes. Healer: guarde a imunidade.", learn: { skill: 1803010, nth: 2 } },
+        { id: "bingo2", pct: 25, title: "BINGO 2", sub: "Igual ao Bingo 1, mas pulem as ondas antes. Healer: guarde a imunidade.", learn: { skill: 1803040, nth: 1 } },
         { id: "circulos", pct: 10, title: "CÍRCULOS", sub: "Um por círculo da sua cor. Entre só no último segundo.", learn: { skill: 1803030, nth: 1 } },
       ],
       casts: [
@@ -66,7 +66,7 @@ window.LUDRA_BR = {
         { skill: 1803380, title: "CRUZ", sub: "Cruz laranja no chão. Saiam das linhas antes de explodir." },
         // Was taken for the bombs; the videos show the Bingo board coming with it.
         { skill: 1803010, title: "BINGO", sub: "Achem o quadrado azul. No atordoamento, BATAM TUDO.", secs: 15 },
-        { skill: 1803040, title: "BINGO!", sub: "Raio revela o quadrado. Todos no azul. Depois, batam tudo.", secs: 15 },
+        { skill: 1803040, title: "BINGO 2", sub: "Achem o quadrado azul, pulem as ondas. No atordoamento, BATAM TUDO. Healer: guarde a imunidade.", secs: 15 },
         { skill: 1803390, title: "LASERS", sub: "Lasers varrendo o chão em sequência. Desviem na ordem." },
         { skill: 1803370, title: "CONE", sub: "Cone laranja na frente do boss. Saiam da frente." },
         { skill: 1803290, title: "RAIO EM LINHA", sub: "Raio reto saindo do boss. Saiam da linha." },
