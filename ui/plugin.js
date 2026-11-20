@@ -141,6 +141,9 @@ window.ludraCall = (c) => engineHooksCall(c);
 // falls from full. Deaths: each one, with the mechanic that came just before.
 let lastStagger = null;
 let lastAggro = "", lastBell = 0;
+const SWIPE_MS = 4000;
+const diedAt = new Map();
+let swap = null;
 const deathsSeen = new Map(); // id -> deaths counted this fight
 let deathFight = 0;
 window.ludraDeaths = [];
@@ -159,16 +162,23 @@ window.__TAURI__?.event.listen("meter", (e) => {
     }
   }
   lastStagger = key ? st ?? null : null;
-  // The aggro: when the boss turns from the one it was hitting to someone
-  // else (the tail swipe comes then), a bell. At most once a second.
-  // Only Ludra, and only before the first Bingo: after it he stays at the
-  // arena's edge facing the group, with no tail swipe.
-  const bingoSeen = key === "ludra" && engine.getLog().some((x) => x.boss === "ludra" && x.what && x.what.skill === 1803040 && x.at >= (live.pullAt || 0));
+  // The aggro: the tail swipe comes when the one holding the aggro dies and
+  // the boss turns to someone else (Vinicius, 20/11: a plain aggro change,
+  // with the tank alive, has no swipe). So the bell rings only for a change
+  // of aggro together with the death of who had it, in either order within
+  // a few seconds. Only Ludra, and only before the first Bingo.
+  const bingoSeen = key === "ludra" && engine.getLog().some((x) => x.boss === "ludra" && x.what && x.what.skill === 1803010 && x.at >= (live.pullAt || 0));
   const swipes = key === "ludra" && !bingoSeen && (live.low ?? live.pct ?? 100) > 50;
   const ag = key && live.cur > 0 && v.boss ? v.boss.aggro || "" : "";
-  if (swipes && ag && lastAggro && ag !== lastAggro && Date.now() - lastBell > 1000 && prefs.enabled && !prefs.off[`${key}:aggro`]) {
-    lastBell = Date.now();
-    bell();
+  const ring = () => {
+    if (Date.now() - lastBell > 1000 && prefs.enabled && !prefs.off[`${key}:aggro`]) {
+      lastBell = Date.now();
+      bell();
+    }
+  };
+  if (swipes && ag && lastAggro && ag !== lastAggro) {
+    if (Date.now() - (diedAt.get(lastAggro) || 0) <= SWIPE_MS) ring();
+    else swap = { from: lastAggro, at: Date.now() };
   }
   lastAggro = key ? ag || lastAggro : "";
   // Deaths, during a Ludra fight.
@@ -186,6 +196,11 @@ window.__TAURI__?.event.listen("meter", (e) => {
     deathsSeen.set(r.id, n);
     if (n <= was) continue;
     const at = Date.now();
+    diedAt.set(r.name, at);
+    if (swap && swap.from === r.name && at - swap.at <= SWIPE_MS && swipes) {
+      swap = null;
+      ring();
+    }
     const mech = engine.getLog().filter((x) => x.boss === key && at - x.at <= 12000 && x.at >= pull && x.what && !/^(skill|efeito) /.test(x.what.title || "")).at(-1);
     const what = mech ? mech.what.title.replace(/!/g, "") : "";
     window.ludraDeaths.push({ pull, at, name: r.name, class: r.class, me: !!r.me, mech: what });
