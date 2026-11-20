@@ -46,24 +46,31 @@ window.LUDRA_BR = {
       // Normal, 14/11/2026) gives orbs 90%, arena 85%, Bingo 60%, Zikel 45%,
       // Colors 33%. Bingo 2 at 25% and the circles at 10% come from the
       // global early-access guide (aion2tierlist) and the Korean ones.
+      // From the 20/11 videos of three Normal pulls, side by side with the log
+      // (the order of the skills is the same in every pull): which id is which
+      // mechanic on screen. Most calls come from the cast, not the HP.
       hp: [
-        { id: "orbes", pct: 90, title: "ORBES", sub: "Azul: todos pegam. Vermelho: só com bloqueio ou imunidade." },
-        { id: "arena", pct: 85, title: "ARENA DIMINUI", sub: "Fiquem dentro: fora da borda tira 7 mil por segundo. Daqui a ordem dos ataques é sempre a mesma." },
-        { id: "bingo1", pct: 50, title: "BINGO 1", sub: "Achem o quadrado azul. No atordoamento, BATAM TUDO.", learn: { skill: 1803040, nth: 1 } },
-        { id: "zikel", pct: 45, title: "ZIKEL", sub: "Lasers em sequência. Desviem na ordem: sul, oeste, leste, norte." },
+        { id: "bingo1", pct: 50, title: "BINGO 1", sub: "Achem o quadrado azul. No atordoamento, BATAM TUDO.", learn: { skill: 1803010, nth: 1 } },
         { id: "cores", pct: 33, title: "CORES", sub: "Vermelho de um lado, azul do outro. Longe da outra cor." },
-        { id: "bingo2", pct: 25, title: "BINGO 2", sub: "Igual ao Bingo 1, mas pulem as ondas antes. Healer: guarde a imunidade.", learn: { skill: 1803040, nth: 2 } },
+        { id: "bingo2", pct: 25, title: "BINGO 2", sub: "Igual ao Bingo 1, mas pulem as ondas antes. Healer: guarde a imunidade.", learn: { skill: 1803010, nth: 2 } },
         { id: "circulos", pct: 10, title: "CÍRCULOS", sub: "Um por círculo da sua cor. Entre só no último segundo.", learn: { skill: 1803030, nth: 1 } },
       ],
       casts: [
-        { skill: 1803040, title: "BINGO!", sub: "Raio revela o quadrado. Todos no azul. Depois, batam tudo.", secs: 15 },
-        { skill: 1803030, title: "CÍRCULOS!", sub: "Entre no da sua cor no último segundo. Um por círculo.", secs: 5 },
+        { skill: 1803150, title: "ANEL ROXO", sub: "Anel roxo abre em volta do boss. Fiquem colados nele." },
+        { skill: 1803350, title: "ANEL ROXO", sub: "Anel roxo abre em volta do boss. Fiquem colados nele." },
         { skill: 1803200, title: "ORBES", sub: "Azul: todos pegam. Vermelho: só com bloqueio ou imunidade." },
         { skill: 1803360, title: "ORBES", sub: "Azul: todos pegam. Vermelho: só com bloqueio ou imunidade." },
-        // "Raio Estrondoso Violeta" ("O poder deve ser usado assim."): taken for
-        // the global's bombs, three lightning bombs with tornados (Vinicius, 18/11).
-        // Not confirmed: the log shows when it really comes.
-        { skill: 1803010, title: "BOMBAS DE RAIO", sub: "Três bombas de raio e tornados. Longe das bombas, desviem dos tornados." },
+        { skill: 1803185, title: "TORNADOS", sub: "Tornados roxos andando pela arena. Desviem." },
+        { skill: 1803240, title: "ARENA DIMINUI", sub: "Fiquem dentro do círculo. Fora da borda tira 7 mil por segundo." },
+        { skill: 1803160, title: "CRUZ", sub: "Cruz laranja no chão. Saiam das linhas antes de explodir." },
+        { skill: 1803380, title: "CRUZ", sub: "Cruz laranja no chão. Saiam das linhas antes de explodir." },
+        // Was taken for the bombs; the videos show the Bingo board coming with it.
+        { skill: 1803010, title: "BINGO", sub: "Achem o quadrado azul. No atordoamento, BATAM TUDO.", secs: 15 },
+        { skill: 1803040, title: "BINGO!", sub: "Raio revela o quadrado. Todos no azul. Depois, batam tudo.", secs: 15 },
+        { skill: 1803390, title: "LASERS", sub: "Lasers varrendo o chão em sequência. Desviem na ordem." },
+        { skill: 1803370, title: "CONE", sub: "Cone laranja na frente do boss. Saiam da frente." },
+        { skill: 1803290, title: "RAIO EM LINHA", sub: "Raio reto saindo do boss. Saiam da linha." },
+        { skill: 1803030, title: "CÍRCULOS!", sub: "Entre no da sua cor no último segundo. Um por círculo.", secs: 5 },
       ],
       buffCalls: [
         { abnormal: 10000008, title: "LUDRA FORTALECIDO", sub: "Ele ganhou o poder da eternidade. Defesas prontas." },

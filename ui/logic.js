@@ -314,12 +314,16 @@
       if (!boss || boss.key !== key) return;
       const c = bosses[key].casts.find((x) => x.skill === skill);
       if (!c) {
-        // A skill with no call yet: logged once per fight, so a raid's log
-        // shows which id is which mechanic (the bombs, for one).
-        if (!boss.seen[`u:${skill}`]) {
-          boss.seen[`u:${skill}`] = 1;
-          logIt({ skill, n: 1, title: `skill ${skill}` }, at);
+        // A skill with no call yet: logged each time it comes (once for its
+        // cast and its hit), so a raid's log shows which id is which mechanic
+        // and how the rotation repeats.
+        const u = `u:${skill}`;
+        if (at - (boss.seen[u] || -1e9) >= 4000) {
+          const n = (boss.seen[`un:${skill}`] || 0) + 1;
+          boss.seen[`un:${skill}`] = n;
+          logIt({ skill, n, title: `skill ${skill}` }, at);
         }
+        boss.seen[u] = at;
         return emitState();
       }
       // The same skill comes as a cast (09 38) and when it goes off (02 38): once only.

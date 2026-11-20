@@ -1833,7 +1833,7 @@ checksum = "5d15f86d12da44cd8d4ec3c73984537eb7f4cadcb9776a575a0a8a05ca11005c"
 
 [[package]]
 name = "ludra-br"
-version = "0.7.16"
+version = "0.7.17"
 dependencies = [
  "a2tools-dps-meter",
  "libloading 0.8.9",

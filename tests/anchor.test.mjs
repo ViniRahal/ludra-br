@@ -25,7 +25,7 @@ t += 500; hp(77, 4e8);
 e.cast({ caster: 77, skill: 1803010 }, t, "cast");
 assert.equal(e._boss().id, 10, "the fight stays with Ludra");
 assert.equal(Math.round(st.pct), 80, "no jump back to 100%");
-assert.ok(calls.some((c) => c.text.startsWith("BOMBAS")), "the copy's mechanic is still Ludra's");
+assert.ok(calls.some((c) => c.text.startsWith("BINGO")), "the copy's mechanic is still Ludra's");
 // A big add with no code: nothing changes.
 t += 500; hp(555, 9e8);
 assert.equal(e._boss().id, 10);

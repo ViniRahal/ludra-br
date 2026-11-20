@@ -54,12 +54,12 @@ assert.ok(calls.some((c) => c.kind === "hp" && c.text.startsWith("50% — BINGO 
 // max saved once under 50%
 assert.ok(saved && saved.maxHp.ludra && saved.maxHp.ludra.length === 1);
 // the real Bingo cast at 49.9%: logged with its HP
-t += 500; e.cast({ caster: LUDRA, skill: 1803040 }, t, "cast");
-assert.equal(calls.at(-1).text, "BINGO!");
+t += 500; e.cast({ caster: LUDRA, skill: 1803010 }, t, "cast");
+assert.equal(calls.at(-1).text, "BINGO");
 assert.equal(e.getLog().at(-1).pct, 49.8);
 // its 02 38 when the 15 s bar ends: the same cast, not a second Bingo
 const nb = calls.length, nl = e.getLog().length;
-e.cast({ caster: LUDRA, skill: 1803040 }, t + 15_000, "use");
+e.cast({ caster: LUDRA, skill: 1803010 }, t + 15_000, "use");
 assert.equal(calls.length, nb); assert.equal(e.getLog().length, nl);
 // jump to 20%: only the lowest missed threshold is called (Bingo 2), Cores skipped silently
 const before = calls.length;
@@ -67,7 +67,7 @@ t += 1000; hp(LUDRA, MAX * 0.2);
 const fresh = calls.slice(before).filter((c) => c.kind === "hp");
 assert.equal(fresh.length, 1); assert.ok(fresh[0].text.includes("BINGO 2"));
 // second Bingo cast logged as n=2
-t += 20_000; e.cast({ caster: LUDRA, skill: 1803040 }, t, "cast");
+t += 20_000; e.cast({ caster: LUDRA, skill: 1803010 }, t, "cast");
 assert.equal(e.getLog().at(-1).what.n, 2);
 // stale event (queued 10 s ago): logged, not called
 const c0 = calls.length; e.cast({ caster: LUDRA, skill: 1803030 }, t - 10_000);

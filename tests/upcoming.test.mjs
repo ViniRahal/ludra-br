@@ -38,10 +38,10 @@ e.hp({ entity: id, kind: 2, count: 1, res: 0, hp: MAX * 0.999 }, t);
 const pull = t;
 assert.ok(st.upcoming, "due by time");
 assert.equal(st.upcoming.at, pull + 20_000);
-assert.match(st.upcoming.title, /BOMBAS/);
+assert.match(st.upcoming.title, /BINGO/);
 // 4 s before: a spoken warning, once.
 t = pull + 16_000; e.tick(); e.tick();
-assert.equal(calls.filter((c) => c.text.startsWith("Em breve: BOMBAS")).length, 1);
+assert.equal(calls.filter((c) => c.text.startsWith("Em breve: BINGO")).length, 1);
 // They come: next one in 40 s.
 t = pull + 20_000;
 e.cast({ caster: id, skill: 1803010 }, t, "cast");

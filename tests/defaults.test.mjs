@@ -19,6 +19,6 @@ for (let p = 99.5; p >= 5; p -= 0.5) {
   e.hp({ entity: ID, kind: 2, count: 1, res: 0, hp: Math.round((MAX * p) / 100) }, t);
 }
 const hp = calls.filter((c) => c.kind === "hp").map((c) => c.text);
-assert.deepEqual(hp, ["90% — ORBES", "85% — ARENA DIMINUI", "50% — BINGO 1", "45% — ZIKEL", "33% — CORES", "25% — BINGO 2", "10% — CÍRCULOS"]);
-assert.equal(calls.filter((c) => c.kind === "pre").length, 7);
+assert.deepEqual(hp, ["50% — BINGO 1", "33% — CORES", "25% — BINGO 2", "10% — CÍRCULOS"]);
+assert.equal(calls.filter((c) => c.kind === "pre").length, 4);
 console.log("ok defaults", hp.length);
