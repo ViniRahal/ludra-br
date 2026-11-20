@@ -62,8 +62,11 @@
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", first);
     else setTimeout(first, 0);
     listen("widget-message", (data) => fire("widget-message", { data }));
-    // Locked as it was left.
-    store.get("locked").then((on) => on && invoke("overlay_lock", { on: true }));
+    // The boxes always move like Questlog's: mouse over one, drag it. The old
+    // "Travar" switch left them stuck without anyone seeing why, so it is gone
+    // and an old saved lock is undone here.
+    store.set("locked", false);
+    invoke("overlay_lock", { on: false });
   } else {
     listen("widget", (d) => fire("widget", d));
   }
