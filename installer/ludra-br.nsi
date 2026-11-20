@@ -2,7 +2,7 @@
 Unicode true
 !include "MUI2.nsh"
 !define APP "Ludra BR"
-!define VERSION "0.7.19"
+!define VERSION "0.7.20"
 Name "${APP}"
 OutFile "LudraBR-Instalador-${VERSION}.exe"
 InstallDir "$LOCALAPPDATA\Programs\Ludra BR"

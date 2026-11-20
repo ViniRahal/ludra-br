@@ -100,3 +100,16 @@ assert.equal(saved4, null);
 e4.hp({ entity: 78, kind: 2, count: 1, res: 0, hp: 40_000 }, t);
 assert.notEqual(e4._boss()?.id, 78);
 console.log("ok", calls.length, "calls");
+
+// Bingo 1 early (58%, 20/11): its 50% call is then not made
+{
+  const cs = []; let tt = 1_000_000;
+  const e5 = createEngine(DATA, { now: () => tt, call: (c) => cs.push(c), state: () => {} });
+  const h5 = (v) => e5.hp({ entity: LUDRA, kind: 2, count: 1, res: 0, hp: v }, tt);
+  h5(MAX);
+  for (let p = 99; p >= 58; p--) { tt += 1000; h5(MAX * p / 100); }
+  tt += 500; e5.cast({ caster: LUDRA, skill: 1803010 }, tt, "cast");
+  for (let p = 57; p >= 45; p--) { tt += 1000; h5(MAX * p / 100); }
+  assert.ok(!cs.some((c) => c.kind === "hp" && c.text.includes("BINGO 1")), "no late Bingo 1 call");
+}
+console.log("early bingo ok");

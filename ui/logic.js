@@ -335,6 +335,14 @@
       boss.seen[`t:${skill}`] = at;
       if (how !== "use") boss.seen[`w:${skill}`] = at + Math.max(USE_AFTER_CAST_MS, (c.secs || 0) * 1000 + 4000);
       boss.seen[skill] = (boss.seen[skill] || 0) + 1;
+      // The mechanic came (Bingo 1 can come at 58%, not 50%): its HP call is
+      // done, so it is not called again later and "próximo" moves on.
+      for (const t of thresholds(key)) {
+        if (t.learn && t.learn.skill === skill && t.learn.nth === boss.seen[skill]) {
+          boss.fired.add(t.id);
+          boss.fired.add(`pre:${t.id}`);
+        }
+      }
       logIt({ skill, n: boss.seen[skill], title: c.title }, at);
       if (prefs.castCalls && !prefs.off[`${key}:${k}`] && now() - at <= STALE_MS) {
         hooks.call({ kind: "cast", text: c.title, sub: c.sub, say: `${c.title}. ${c.sub}`, end: c.secs ? at + c.secs * 1000 : 0 });
