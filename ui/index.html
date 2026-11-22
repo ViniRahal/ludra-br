@@ -16,6 +16,7 @@
         <button type="button" class="tab" data-tab="dano"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Medidor de combate</span></button>
         <button type="button" class="tab" data-tab="lutas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg><span>Resumo das lutas</span></button>
         <button type="button" class="tab" data-tab="hist"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg><span>Histórico</span></button>
+        <button type="button" class="tab" data-tab="video"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/></svg><span>Vídeo e live</span></button>
         <button type="button" class="tab" data-tab="mec"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg><span>Mecânicas</span></button>
         <button type="button" class="tab" data-tab="chars"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Personagens</span></button>
         <div class="navHead">Registros</div>
@@ -37,7 +38,7 @@
       <div class="hero">
         <div>
           <h1 class="hello">Olá</h1>
-          <p class="heroSub">Avisos de mecânica do Ludra, painel do boss e medidor de dano, em português.</p>
+          <p class="heroSub">Avisos de mecânica do Ludra, vida do boss e medidor de dano, em português.</p>
           <div class="heroPills"><span class="pill gamePill"><i></i><span>Esperando o jogo</span></span><span class="pill whoPill">Personagem: dê um TP</span></div>
         </div>
       </div>
@@ -58,8 +59,13 @@
           <span class="note">Mostra um Bingo de mentira na tela.</span>
         </div>
       </div>
+    </section>
+
+    <section class="pane" data-pane="video" hidden>
+      <h2>Vídeo e live</h2>
+      <p class="note">Grave as lutas do Ludra para rever depois e esconda os nomes dos jogadores quando for gravar ou fazer live.</p>
       <div class="card">
-        <div class="cardHead">Gravar a luta</div>
+        <div class="cardHead">Gravar vídeo da luta</div>
         <div class="inline">
           <button type="button" class="btn primary recBtn">Gravar agora</button>
           <button type="button" class="btn recFolder">Abrir pasta</button>
@@ -78,7 +84,7 @@
         <p class="note recNote">Usa o gravador do Windows (Xbox Game Bar, Win+Alt+R). Se escolher outra pasta, o vídeo é levado para lá no fim da gravação e some da Galeria do Game Bar.</p>
       </div>
       <div class="card">
-        <div class="cardHead">Esconder nomes (para gravar ou fazer live)</div>
+        <div class="cardHead">Modo live: esconder nomes</div>
         <label class="switch"><span>Esconder os nomes dos jogadores</span><input type="checkbox" class="namesOn" /></label>
         <label class="switch"><span>Mostrar o meu nome</span><input type="checkbox" class="namesKeepMe" /></label>
         <label class="switch"><span>Como mostrar</span><select class="namesStyle"><option value="player">Jogador 1, Jogador 2…</option><option value="class">Classe e número (Gladiador 1…)</option></select></label>
@@ -93,7 +99,7 @@
 
     <section class="pane" data-pane="overlays" hidden>
       <h2>Editor de overlays</h2>
-      <p class="note">Esta é a sua tela. Arraste cada quadradinho para onde quiser e puxe as pontinhas para aumentar ou diminuir. A caixa de verdade vai junto, por cima do jogo.</p>
+      <p class="note">Esta é a sua tela. Cada caixa colorida é uma coisa que aparece por cima do jogo (a lista embaixo diz o que é cada número). Arraste para mudar de lugar e puxe as pontinhas para aumentar ou diminuir.</p>
       <div class="presets">
         <span class="presetLab">Layout</span>
         <select class="presetSel"></select>
@@ -105,6 +111,8 @@
       <div class="card editor">
         <div class="screen"><div class="grid"></div></div>
         <div class="editorFoot"><span class="note screenSize"></span><label class="snapLab"><input type="checkbox" class="snap" checked /> Encaixar na grade</label></div>
+        <div class="oLegend"></div>
+        <p class="note sub">"Escondido agora": a caixa só aparece quando precisa (por exemplo, a vida do boss só na luta). Dá para arrastar mesmo assim.</p>
       </div>
       <div class="grid2">
         <div class="card">
@@ -123,7 +131,7 @@
           <p class="note">Cores e voz em "Aparência e voz".</p>
         </div>
         <div class="card">
-          <div class="cardHead">Painel do boss</div>
+          <div class="cardHead">Vida do boss</div>
           <label class="switch"><span>Mostrar na tela (vida, aggro, enrage)</span><input type="checkbox" class="bossOn" /></label>
           <label class="switch"><span>Visual</span><select class="bossTheme"><option value="moldura">B: Moldura do jogo</option><option value="natural">A: Natural (sem caixa)</option><option value="minimo">C: Mínimo</option><option value="caixa">D: Caixa escura</option></select></label>
           <label class="row"><span>Tamanho</span><input type="range" class="bossScale" min="60" max="180" step="10" /></label>

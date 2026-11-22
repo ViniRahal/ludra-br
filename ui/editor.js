@@ -4,7 +4,18 @@
   const T = window.__TAURI__;
   const screen = document.querySelector(".screen");
   if (!screen) return;
-  const NAMES = { overlay: "Avisos de mecânica", boss: "Painel do boss", meter: "Medidor de dano", party: "Quadro da party", cast: "Barra de cast do boss" };
+  const NAMES = { overlay: "Avisos de mecânica", boss: "Vida do boss", meter: "Medidor de dano", party: "Quadro da party", cast: "Barra de cast do boss" };
+  // What each box is, in a few words: on the list under the screen and when
+  // the mouse is over the box.
+  const DESC = { overlay: "O aviso grande do que fazer (ONDA, BINGO, ZIKEL...)", boss: "Vida do boss, quem está com o aggro, stagger e enrage", cast: "A habilidade que o boss está soltando e quanto falta", meter: "O dano de cada um da party", party: "A vida de cada um da party e os debuffs" };
+  const ORDER = ["overlay", "boss", "cast", "meter", "party"];
+  const num = (label) => (ORDER.indexOf(label) + 1 || ORDER.length + 1);
+  const legend = document.querySelector(".oLegend");
+  let legendRows = {};
+  const light = (label, on) => {
+    els[label]?.classList.toggle("lit", on);
+    legendRows[label]?.classList.toggle("lit", on);
+  };
   const COLORS = { overlay: "#ffd84d", boss: "#ff6b62", meter: "#4ea3f5", party: "#5fdc6a", cast: "#c08bff" };
   let layout = null, drag = null, els = {};
   const pane = () => document.querySelector('[data-pane="overlays"]');
@@ -20,18 +31,55 @@
         e = els[b.label] = document.createElement("div");
         e.className = "obox";
         e.style.setProperty("--c", COLORS[b.label] || "#aaa");
-        e.innerHTML = `<b></b><small></small><i class="grip"></i><i class="grip tl"></i><i class="grip tr"></i><i class="grip bl"></i>`;
+        e.innerHTML = `<span class="oNum"></span><span class="oTxt"><b></b><small></small></span><i class="grip"></i><i class="grip tl"></i><i class="grip tr"></i><i class="grip bl"></i>`;
+        e.querySelector(".oNum").textContent = num(b.label);
         e.querySelector("b").textContent = NAMES[b.label] || b.label;
+        e.title = `${NAMES[b.label] || b.label}: ${DESC[b.label] || ""}`;
+        e.addEventListener("pointerenter", () => light(b.label, true));
+        e.addEventListener("pointerleave", () => light(b.label, false));
         e.addEventListener("pointerdown", (ev) => (ev.target.classList.contains("grip") ? startSize(ev, b.label) : start(ev, b.label)));
         screen.append(e);
       }
       if (drag && drag.label === b.label) continue;
       e.style.left = `${(b.x - m.x) * k}px`;
       e.style.top = `${(b.y - m.y) * k}px`;
-      e.style.width = `${Math.max(24, b.w * k)}px`;
-      e.style.height = `${Math.max(14, b.h * k)}px`;
+      const w = Math.max(26, b.w * k), h = Math.max(22, b.h * k);
+      e.style.width = `${w}px`;
+      e.style.height = `${h}px`;
+      // Too small for the name: only the number shows (the list under the
+      // screen says which is which).
+      e.classList.toggle("tiny", w < 120 || h < 22);
+      e.classList.toggle("short", h < 40);
       e.classList.toggle("off", !b.visible);
       e.querySelector("small").textContent = b.visible ? "" : "escondido agora";
+    }
+    drawLegend();
+  }
+  // The list under the screen: number, name, what it is, and if it is on the
+  // screen now. The mouse over a line lights its box (and the other way).
+  function drawLegend() {
+    if (!legend || !layout) return;
+    const boxes = layout.boxes.slice().sort((a, b) => num(a.label) - num(b.label));
+    const key = boxes.map((b) => `${b.label}:${b.visible}`).join(",");
+    if (legend.dataset.key === key) return;
+    legend.dataset.key = key;
+    legend.replaceChildren();
+    legendRows = {};
+    for (const b of boxes) {
+      const r = document.createElement("div");
+      r.className = "oLeg";
+      r.style.setProperty("--c", COLORS[b.label] || "#aaa");
+      r.innerHTML = `<span class="oNum"></span><span class="oLegTxt"><b></b><small></small></span><span class="oState"></span>`;
+      r.querySelector(".oNum").textContent = num(b.label);
+      r.querySelector("b").textContent = NAMES[b.label] || b.label;
+      r.querySelector("small").textContent = DESC[b.label] || "";
+      const st = r.querySelector(".oState");
+      st.textContent = b.visible ? "Na tela" : "Escondido agora";
+      st.classList.toggle("on", !!b.visible);
+      r.addEventListener("pointerenter", () => light(b.label, true));
+      r.addEventListener("pointerleave", () => light(b.label, false));
+      legendRows[b.label] = r;
+      legend.append(r);
     }
   }
   async function load() {

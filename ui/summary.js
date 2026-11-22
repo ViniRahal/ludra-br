@@ -106,48 +106,97 @@
   const list = document.querySelector(".fights");
   const when = (at) => new Date(at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
-  function card(f) {
-    const c = el("div", `card fight${f.won ? " won" : " wipe"}`);
-    const head = el("div", "fHead");
+  const pctTxt = (v) => String(Math.round(v * 10) / 10).replace(".", ",");
+  const diffTxt = (f) => (f.diff ? (f.diff === "hard" ? "Hard" : "Normal") : "");
+  const resTxt = (f) => (f.won ? "Derrotado" : `Wipe com ${pctTxt(f.low)}% de vida`);
+  const stat = (label, value) => {
+    const t = el("div", "fStat");
+    t.append(el("span", "fStatV", value), el("span", "fStatL", label));
+    return t;
+  };
+
+  // One fight: a line with the boss, the result and the time (a click opens
+  // it), and inside: the numbers of the fight, each player with a bar of
+  // the DPS, the deaths and the mechanics.
+  function card(f, open) {
+    const c = el("details", `card fight${f.won ? " won" : " wipe"}`);
+    c.open = !!open;
+    const head = el("summary", "fHead");
     const title = el("div", "fTitle");
-    title.append(el("b", "", f.name + (f.diff ? ` · ${f.diff === "hard" ? "Hard" : "Normal"}` : "")), el("span", `fRes ${f.won ? "won" : "wipe"}`, f.won ? "Derrotado" : `Wipe em ${String(f.low).replace(".", ",")}%`));
-    const meta = el("div", "fMeta", `${when(f.at)} · ${clock(f.dur)}`);
-    head.append(title, meta);
+    const nameLine = el("div", "fNameLine");
+    nameLine.append(el("b", "", f.name));
+    if (f.diff) nameLine.append(el("span", `fDiff ${f.diff}`, diffTxt(f)));
+    nameLine.append(el("span", `fRes ${f.won ? "won" : "wipe"}`, resTxt(f)));
+    title.append(nameLine, el("span", "fMeta", `${when(f.at)} · durou ${clock(f.dur)}`));
+    head.append(title, el("span", "fChevron", "›"));
     c.append(head);
-    if (!f.rows.length) c.append(el("p", "note", "O medidor não pegou dano nessa luta."));
+    const body = el("div", "fBody");
+    c.append(body);
     const ranked = f.rows.slice().sort((a, b) => b.dps - a.dps);
+    const teamDps = ranked.reduce((n, r) => n + (r.dps || 0), 0);
+    const teamTotal = ranked.reduce((n, r) => n + (r.total || 0), 0);
+    const deathsN = (f.deaths && f.deaths.length) || ranked.reduce((n, r) => n + (r.deaths || 0), 0);
+    const stats = el("div", "fStats");
+    stats.append(stat("Duração", clock(f.dur)), stat("DPS da party", ranked.length ? `${short(teamDps)}/s` : "—"), stat("Dano total", ranked.length ? short(teamTotal) : "—"), stat("Mortes", String(deathsN)));
+    if (!f.won) stats.append(stat("Vida do boss no wipe", `${pctTxt(f.low)}%`));
+    body.append(stats);
+    if (!ranked.length) body.append(el("p", "note", "O medidor não pegou dano nessa luta."));
+    else {
+      const head2 = el("div", "fRowsHead");
+      head2.append(el("span", "", "Jogador"), el("span", "", "% dano"), el("span", "", "Dano"), el("span", "", "DPS"));
+      body.append(head2);
+    }
     const nm = namesOf(ranked);
+    const top = Math.max(1, ...ranked.map((r) => r.dps || 0));
     ranked.forEach((r, i) => {
       const row = el("div", `fRow${r.me ? " me" : ""}`);
       row.style.setProperty("--c", COLORS[r.class] || "#8892a6");
-      row.append(
-        el("span", "fPos", `${i + 1}`),
-        icon(r.class),
-        el("span", "fName", nm(r.name, { me: r.me, cls: r.class })),
-        el("span", "fTotal", short(r.total)),
-        el("span", "fDps", `${short(r.dps)}/s`),
-        el("span", "fDead", r.deaths ? `☠ ${r.deaths}` : ""),
-      );
-      c.append(row);
+      row.style.setProperty("--w", `${Math.max(2, ((r.dps || 0) / top) * 100)}%`);
+      const who = el("span", "fWho");
+      who.append(el("span", "fPos", `${i + 1}`), icon(r.class), el("span", "fName", nm(r.name, { me: r.me, cls: r.class })));
+      if (r.deaths) who.append(el("span", "fDead", `☠ ${r.deaths}`));
+      row.append(who, el("span", "fShare", teamTotal ? `${Math.round(((r.total || 0) / teamTotal) * 100)}%` : ""), el("span", "fTotal", short(r.total)), el("span", "fDps", `${short(r.dps)}/s`));
+      body.append(row);
     });
     if (f.deaths && f.deaths.length) {
-      const d = el("div", "fDeaths");
-      d.append(el("b", "", `☠ Mortes (${f.deaths.length})`));
+      const d = el("div", "fSection fDeaths");
+      d.append(el("div", "fSecHead", `☠ Mortes (${f.deaths.length})`));
       for (const x of f.deaths) d.append(el("div", "fDeath", deathText(x, nm)));
-      c.append(d);
+      body.append(d);
     }
     if (f.mechs.length) {
-      const m = el("div", "fMechs");
-      for (const x of f.mechs.slice(0, 30)) m.append(el("span", "fMech", `${clock(x.t)} ${x.title}${x.pct != null ? ` (${String(x.pct).replace(".", ",")}%)` : ""}`));
-      c.append(m);
+      const m = el("details", "fSection fMechBox");
+      m.append(el("summary", "fSecHead", `Mecânicas na ordem (${f.mechs.length})`));
+      const list = el("div", "fMechs");
+      for (const x of f.mechs.slice(0, 40)) {
+        const it = el("div", "fMech");
+        it.append(el("span", "fMechT", clock(x.t)), el("span", "fMechN", x.title), el("span", "fMechP", x.pct != null ? `${pctTxt(x.pct)}%` : ""));
+        list.append(it);
+      }
+      m.append(list);
+      body.append(m);
     }
     const acts = el("div", "fActs");
-    const copy = el("button", "btn", "Copiar imagem");
+    const copy = el("button", "btn primary", "Copiar imagem para o Discord");
     copy.type = "button";
+    const del = el("button", "btn", "Apagar esta luta");
+    del.type = "button";
     const note = el("span", "note fNote", "");
     copy.addEventListener("click", () => copyImage(f, note));
-    acts.append(copy, note);
-    c.append(acts);
+    let armed = 0;
+    del.addEventListener("click", () => {
+      if (!armed) {
+        del.textContent = "Clique de novo para apagar";
+        armed = setTimeout(() => ((armed = 0), (del.textContent = "Apagar esta luta")), 4000);
+        return;
+      }
+      clearTimeout(armed);
+      fights = fights.filter((x) => x !== f);
+      save();
+      render();
+    });
+    acts.append(copy, del, note);
+    body.append(acts);
     return c;
   }
 
@@ -158,7 +207,7 @@
       list.append(el("p", "note", "Nenhuma luta ainda. Quando um boss do Ludra morrer (ou a PT der wipe), o resumo aparece aqui."));
       return;
     }
-    for (const f of fights) list.append(card(f));
+    fights.forEach((f, i) => list.append(card(f, i === 0)));
   }
 
   // ---- the image for the Discord --------------------------------------------
@@ -185,7 +234,14 @@
     g.font = "600 13px Segoe UI, sans-serif";
     g.fillStyle = f.won ? "#5fd38a" : "#ff6b62";
     const res = f.won ? "DERROTADO" : `WIPE EM ${String(f.low).replace(".", ",")}%`;
+    const ranked0 = f.rows.slice().sort((a, b) => b.dps - a.dps);
+    const tDps = ranked0.reduce((n, r) => n + (r.dps || 0), 0);
+    const dN = (f.deaths && f.deaths.length) || ranked0.reduce((n, r) => n + (r.deaths || 0), 0);
     g.fillText(res, PAD, PAD + 36);
+    const rw = g.measureText(res).width;
+    g.fillStyle = "#aeb6c4";
+    g.font = "13px Segoe UI, sans-serif";
+    g.fillText(`·  DPS da party ${short(tDps)}/s  ·  ${dN} ${dN === 1 ? "morte" : "mortes"}`, PAD + rw + 10, PAD + 36);
     g.fillStyle = "#8b93a3";
     g.textAlign = "right";
     g.fillText(`${when(f.at)} · ${clock(f.dur)}`, W - PAD, PAD + 12);
