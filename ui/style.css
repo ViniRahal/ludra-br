@@ -240,3 +240,9 @@ details.more > summary { font-weight: 600; font-size: 13.5px; color: var(--dim);
 details.more[open] > summary { margin-bottom: 4px; color: inherit; }
 details.more .switch span { min-width: 0; }
 .oLegend + .note { margin-top: 10px; }
+.ovlCards > .ovlCard:not(.sel) { display: none; }
+.ovlCards > .ovlCard.sel { grid-column: 1 / -1; border-color: var(--accent, #4ea3f5); }
+.ovlHint { margin: 12px 0 6px; font-weight: 600; color: var(--text, #e8ecf2); }
+.obox.picked { box-shadow: 0 0 0 2px #fff, 0 0 12px var(--c); z-index: 3; }
+.oLeg { cursor: pointer; }
+.oLeg.picked { background: color-mix(in srgb, var(--c) 22%, transparent); outline: 1px solid var(--c); }

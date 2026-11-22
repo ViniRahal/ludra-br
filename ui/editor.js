@@ -14,6 +14,20 @@
   const ORDER = ["overlay", "boss", "cast", "meter", "party"];
   const num = (label) => (ORDER.indexOf(label) + 1 || ORDER.length + 1);
   const legend = document.querySelector(".oLegend");
+  // Only the options of the box clicked show (on the screen or on the list);
+  // the others stay closed until their box is clicked.
+  let picked = null;
+  const hint = document.querySelector(".ovlHint");
+  const HINT = hint ? hint.textContent : "";
+  function pick(label, scroll) {
+    picked = label;
+    for (const c of document.querySelectorAll(".ovlCard")) c.classList.toggle("sel", c.dataset.ovl === label);
+    for (const [l, e] of Object.entries(els)) e.classList.toggle("picked", l === label);
+    for (const [l, r] of Object.entries(legendRows)) r.classList.toggle("picked", l === label);
+    if (hint) hint.textContent = label ? `Ajustando: ${NAMES[label] || label}. Clique em outra caixa para trocar.` : HINT;
+    const card = label && document.querySelector(`.ovlCard[data-ovl="${label}"]`);
+    if (scroll && card) card.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
   let legendRows = {};
   const light = (label, on) => {
     els[label]?.classList.toggle("lit", on);
@@ -55,7 +69,11 @@
         e.title = `${NAMES[b.label] || b.label}: ${DESC[b.label] || ""}`;
         e.addEventListener("pointerenter", () => light(b.label, true));
         e.addEventListener("pointerleave", () => light(b.label, false));
-        e.addEventListener("pointerdown", (ev) => (ev.target.classList.contains("grip") ? startSize(ev, b.label) : start(ev, b.label)));
+        e.addEventListener("pointerdown", (ev) => {
+          pick(b.label, false);
+          ev.target.classList.contains("grip") ? startSize(ev, b.label) : start(ev, b.label);
+        });
+        e.classList.toggle("picked", picked === b.label);
         screen.append(e);
       }
       if (drag && drag.label === b.label) continue;
@@ -94,6 +112,8 @@
       st.classList.toggle("on", !!b.visible);
       r.addEventListener("pointerenter", () => light(b.label, true));
       r.addEventListener("pointerleave", () => light(b.label, false));
+      r.addEventListener("click", () => pick(b.label, true));
+      r.classList.toggle("picked", picked === b.label);
       legendRows[b.label] = r;
       legend.append(r);
     }
@@ -180,8 +200,9 @@
     const y = Math.round(m.y + top / k - drag.b.dy);
     T && T.core.invoke("overlay_move", { label: drag.label, x, y }).catch(() => {});
   }
-  window.addEventListener("pointerup", () => {
+  window.addEventListener("pointerup", (ev) => {
     if (!drag || drag.fake) return;
+    if (Math.abs(ev.clientX - drag.sx) < 4 && Math.abs(ev.clientY - drag.sy) < 4) pick(drag.label, true);
     const m = layout.monitor;
     move(parseFloat(drag.e.style.left), parseFloat(drag.e.style.top), screen.clientWidth / m.w, m);
     drag.e.classList.remove("dragging");

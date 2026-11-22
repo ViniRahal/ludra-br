@@ -114,8 +114,9 @@
         <div class="oLegend"></div>
         <p class="note sub">"Escondido agora": a caixa só aparece quando precisa (por exemplo, a vida do boss só na luta). Dá para arrastar mesmo assim.</p>
       </div>
-      <div class="grid2">
-        <div class="card">
+      <p class="note ovlHint">Clique numa caixa (na tela ou na lista) para ajustar o tamanho, a opacidade e o que ela mostra.</p>
+      <div class="grid2 ovlCards">
+        <div class="card ovlCard" data-ovl="overlay">
           <div class="cardHead">Avisos de mecânica</div>
           <label class="switch"><span>Mostrar na tela</span><input type="checkbox" class="widget" /></label>
           <label class="row"><span>Tamanho</span><input type="range" class="size" min="24" max="100" step="4" data-unit="" /></label>
@@ -130,7 +131,7 @@
           </details>
           <p class="note">Cores e voz em "Aparência e voz".</p>
         </div>
-        <div class="card">
+        <div class="card ovlCard" data-ovl="boss">
           <div class="cardHead">Vida do boss</div>
           <label class="switch"><span>Mostrar na tela (vida, aggro, enrage)</span><input type="checkbox" class="bossOn" /></label>
           <label class="switch"><span>Visual</span><select class="bossTheme"><option value="moldura">B: Moldura do jogo</option><option value="natural">A: Natural (sem caixa)</option><option value="minimo">C: Mínimo</option><option value="caixa">D: Caixa escura</option></select></label>
@@ -146,7 +147,7 @@
             <label class="switch"><span>Também nos outros bosses do jogo</span><input type="checkbox" class="bossOthers" /></label>
           </details>
         </div>
-        <div class="card">
+        <div class="card ovlCard" data-ovl="meter">
           <div class="cardHead">Medidor de dano</div>
           <label class="switch"><span>Mostrar na tela</span><input type="checkbox" class="meterOn" /></label>
           <label class="row"><span>Tamanho</span><input type="range" class="meterScale" min="60" max="180" step="10" /></label>
@@ -162,7 +163,7 @@
             <p class="note sub">"Esconder": o medidor some fora da luta e volta no pull. Com esta janela aberta ele aparece, para você arrastar.</p>
           </details>
         </div>
-        <div class="card">
+        <div class="card ovlCard" data-ovl="party">
           <div class="cardHead">Quadro da party</div>
           <label class="switch"><span>Quadro da party na tela (vida e debuffs)</span><input type="checkbox" class="partyOn" /></label>
           <label class="switch"><span>Aviso de limpeza em grupo (Clérigo e Chanter)</span><input type="checkbox" class="cleanseCall" /></label>
@@ -177,7 +178,7 @@
           </details>
           <p class="note">Mostra a vida de cada um da party, quem o boss está atacando (🎯) e os debuffs. Borda vermelha: dá para limpar. O aviso de limpeza só aparece para Clérigo e Chanter.</p>
         </div>
-        <div class="card">
+        <div class="card ovlCard" data-ovl="cast">
           <div class="cardHead">Barra de cast do boss</div>
           <label class="switch"><span>Mostrar na tela</span><input type="checkbox" class="castOn" /></label>
           <label class="switch"><span>Mostrar em quem ele mira</span><input type="checkbox" class="castTarget" /></label>
@@ -189,7 +190,7 @@
           <div class="inline"><button type="button" class="btn castTest">Ver exemplo</button></div>
           <p class="note">Mostra o nome da mecânica e o tempo até ela sair. Vermelho: é em você. Usa o mesmo visual do painel do boss. Por enquanto só nos bosses do Ludra.</p>
         </div>
-        <div class="card">
+        <div class="card ovlCtl">
           <div class="cardHead">Controles</div>
           <label class="switch" hidden><span>Travar no lugar</span><input type="checkbox" class="lock" /></label>
           <div class="inline">
