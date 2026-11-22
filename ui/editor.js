@@ -21,6 +21,22 @@
   };
   const COLORS = { overlay: "#ffd84d", boss: "#ff6b62", meter: "#4ea3f5", party: "#5fdc6a", cast: "#c08bff" };
   let layout = null, drag = null, els = {};
+  const MIN_FS = 8, MAX_FS = 13;
+  // The name's width at 12 px (measured once per box).
+  const nameW = (e) => {
+    if (!e._nw) {
+      const t = e.querySelector(".oTag");
+      t.style.fontSize = "12px";
+      e._nw = t.scrollWidth || 60;
+    }
+    return e._nw;
+  };
+  // The letter size that fits the box as it is drawn now.
+  function fit(e) {
+    const w = e.offsetWidth, h = e.offsetHeight;
+    const fs = Math.max(MIN_FS, Math.min(MAX_FS, ((w - 8) * 12) / nameW(e), h * 0.6));
+    e.querySelector(".oTag").style.fontSize = `${fs.toFixed(1)}px`;
+  }
   const pane = () => document.querySelector('[data-pane="overlays"]');
   function draw() {
     if (!layout) return;
@@ -45,12 +61,13 @@
       if (drag && drag.label === b.label) continue;
       e.style.left = `${(b.x - m.x) * k}px`;
       e.style.top = `${(b.y - m.y) * k}px`;
-      // The name always goes inside the box: a box smaller than its name is
-      // drawn just big enough to hold it.
-      const tag = e.querySelector(".oTag");
-      const w = Math.max(b.w * k, tag.scrollWidth + 14), h = Math.max(b.h * k, 24);
-      e.style.width = `${w}px`;
-      e.style.height = `${h}px`;
+      // The name goes inside the box and shrinks with it, little by little;
+      // only below the smallest letters (8 px) is the box drawn a bit bigger
+      // than it is, so the name can still be read.
+      const nw = nameW(e);
+      e.style.width = `${Math.max(b.w * k, (nw * MIN_FS) / 12 + 8)}px`;
+      e.style.height = `${Math.max(b.h * k, MIN_FS + 6)}px`;
+      fit(e);
       e.classList.toggle("off", !b.visible);
     }
     drawLegend();
@@ -115,6 +132,7 @@
     const v = Math.max(min, Math.min(max, Math.round((size.v * r) / step) * step));
     size.e.style.width = `${size.w * (v / size.v)}px`;
     size.e.style.height = `${size.h * (v / size.v)}px`;
+    fit(size.e);
     if (String(v) !== i.value) {
       i.value = String(v);
       i.dispatchEvent(new Event("input", { bubbles: true }));
