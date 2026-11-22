@@ -216,3 +216,4 @@ input[type="color"] { width: 44px; height: 26px; border: 0; background: none; }
   .hRow { grid-template-columns: 80px minmax(0, 1fr) 70px; }
   .hRow .hRes, .hRow .hDur, .hRow .hBest { display: none; }
 }
+.btn.recording{background:#c0392b;border-color:#c0392b;color:#fff}

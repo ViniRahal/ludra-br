@@ -8,6 +8,8 @@
 
 use ludra_core::{capture, flows};
 
+mod record;
+
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -373,6 +375,36 @@ fn left_down() -> bool {
     false
 }
 
+/// Starts or stops Game Bar's recording (the same key does both).
+#[tauri::command]
+fn record_toggle() -> bool {
+    record::toggle()
+}
+
+#[tauri::command]
+fn record_last() -> Option<record::Last> {
+    record::last_video()
+}
+
+#[tauri::command]
+fn record_game_front() -> bool {
+    record::game_in_front()
+}
+
+#[tauri::command]
+fn record_save_log(name: String, text: String) -> Result<String, String> {
+    record::save_log(&name, &text)
+}
+
+#[tauri::command]
+fn record_open_folder() {
+    if let Some(d) = record::captures_dir() {
+        let _ = std::fs::create_dir_all(&d);
+        #[cfg(windows)]
+        let _ = std::process::Command::new("explorer").arg(d).spawn();
+    }
+}
+
 #[tauri::command]
 fn overlay_drag(window: tauri::Window) {
     // The mouse thread moves the boxes (follow_cursor).
@@ -660,7 +692,7 @@ fn main() {
     let state = Arc::new(App { status: Mutex::new(Status { capture: "starting".into(), ..Default::default() }), locked: Mutex::new(false), areas: Mutex::new(HashMap::new()), focused: Mutex::new(HashSet::new()), hotkey: Mutex::new(String::new()), detail_tx: Mutex::new(None) });
     tauri::Builder::default()
         .manage(state.clone())
-        .invoke_handler(tauri::generate_handler![status, overlay_show, overlay_hide, overlay_lock, overlay_locked, overlay_drag, overlay_areas, show_main, open_npcap, arranging, update_now, update_download, update_restart, hotkey_label, overlay_layout, overlay_move, send_log, meter_detail, history_list, history_get, history_delete, history_bests])
+        .invoke_handler(tauri::generate_handler![status, overlay_show, overlay_hide, overlay_lock, overlay_locked, overlay_drag, overlay_areas, show_main, open_npcap, arranging, update_now, update_download, update_restart, hotkey_label, overlay_layout, overlay_move, send_log, meter_detail, history_list, history_get, history_delete, history_bests, record_toggle, record_last, record_game_front, record_save_log, record_open_folder])
         .setup(move |app| {
             let handle = app.handle().clone();
             for label in OVER_GAME {

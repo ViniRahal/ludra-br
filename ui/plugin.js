@@ -112,6 +112,7 @@ const engineHooks = {
   },
   state(s) {
     if (live && !s) window.fightEnded?.();
+    window.recordState?.(s);
     window.onBossState?.(s);
     live = s;
     // Comes with each of the boss's HP records (many a second): the page and
@@ -575,8 +576,7 @@ $(".learn").addEventListener("click", () => {
   renderBosses();
 });
 $(".copy").addEventListener("click", async () => {
-  const lines = engine.getLog().map((e) => `${new Date(e.at).toISOString()}\t${BOSS_NAME(e.boss)}\t${e.what?.title || "?"}${e.what?.n > 1 ? ` #${e.what.n}` : ""}\t${e.pct ?? ""}\t${e.since != null ? (e.since / 1000).toFixed(1) + "s" : ""}\t${e.diff || ""}\t${e.code || ""}`);
-  const text = lines.join("\n");
+  const text = logLines(0).join("\n");
   const ta = $(".logText");
   try {
     await navigator.clipboard.writeText(text);
@@ -661,6 +661,7 @@ const allLines = (from) => {
   const dead = recapLog.filter((x) => x.at > from).map((x) => [x.at, R.logLine(x.r, x.at)]);
   return [...mech, ...dead].sort((a, b) => a[0] - b[0]).map((x) => x[1]);
 };
+window.ludraLogLines = (from) => allLines(from);
 let sentUpTo = Number(localStorage.getItem("ludra:sentUpTo")) || 0;
 async function sendLog(auto) {
   const lines = allLines(auto ? sentUpTo : 0);
