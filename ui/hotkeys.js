@@ -5,7 +5,7 @@
 (() => {
   const ACTIONS = [
     { id: "open", name: "Abrir o Ludra BR", desc: "Abre esta janela por cima do jogo. Aperte de novo para voltar ao jogo.", suggest: "Alt+E" },
-    { id: "record", name: "Gravar / parar gravação", desc: "Começa ou para a gravação (aba Vídeo e live).", suggest: "Alt+Shift+R" },
+    { id: "record", name: "Gravar / parar gravação", desc: "Começa ou para a gravação (aba Vídeo).", suggest: "Alt+Shift+R" },
     { id: "overlays", name: "Esconder / mostrar as caixas", desc: "Some com as caixas (overlays) que ficam por cima do jogo. Aperte de novo para voltar.", suggest: "Alt+Shift+H" },
     { id: "names", name: "Esconder nomes", desc: "Liga ou desliga o Esconder nomes (para gravar ou fazer live).", suggest: "Alt+Shift+N" },
     { id: "test", name: "Testar aviso", desc: "Mostra um Bingo de mentira na tela, para ver onde ele aparece.", suggest: "Alt+Shift+T" },

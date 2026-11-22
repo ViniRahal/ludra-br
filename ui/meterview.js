@@ -51,7 +51,7 @@
       const b = el("button", `mNames${np.on ? " on" : ""}`, np.on ? "🙈 Mostrar nomes" : "Esconder nomes");
       b.type = "button";
       b.title = np.on ? "Os nomes estão escondidos. Clique para mostrar." : "Esconde os nomes dos jogadores (para gravar ou fazer live).";
-      if (np.on && !hidden) b.title += " Nesta janela eles continuam aparecendo (mude em Vídeo e live > Modo live).";
+      if (np.on && !hidden) b.title += " Nesta janela eles continuam aparecendo (mude em Início > Esconder nomes).";
       // Not a press on the meter: no drag, no double-click to the settings.
       b.addEventListener("mousedown", (e) => e.stopPropagation());
       b.addEventListener("mouseup", (e) => e.stopPropagation());

@@ -5,6 +5,9 @@
   const screen = document.querySelector(".screen");
   if (!screen) return;
   const NAMES = { overlay: "Avisos de mecânica", boss: "Vida do boss", meter: "Medidor de dano", party: "Quadro da party", cast: "Barra de cast do boss" };
+  // The name on the box itself: short, so that two boxes side by side do not
+  // cover each other's names.
+  const TAGS = { overlay: "Avisos", boss: "Vida do boss", meter: "Medidor de dano", party: "Party", cast: "Cast do boss" };
   // What each box is, in a few words: on the list under the screen and when
   // the mouse is over the box.
   const DESC = { overlay: "O aviso grande do que fazer (ONDA, BINGO, ZIKEL...)", boss: "Vida do boss, quem está com o aggro, stagger e enrage", cast: "A habilidade que o boss está soltando e quanto falta", meter: "O dano de cada um da party", party: "A vida de cada um da party e os debuffs" };
@@ -31,9 +34,8 @@
         e = els[b.label] = document.createElement("div");
         e.className = "obox";
         e.style.setProperty("--c", COLORS[b.label] || "#aaa");
-        e.innerHTML = `<span class="oNum"></span><span class="oTxt"><b></b><small></small></span><i class="grip"></i><i class="grip tl"></i><i class="grip tr"></i><i class="grip bl"></i>`;
-        e.querySelector(".oNum").textContent = num(b.label);
-        e.querySelector("b").textContent = NAMES[b.label] || b.label;
+        e.innerHTML = `<span class="oTag"></span><i class="grip"></i><i class="grip tl"></i><i class="grip tr"></i><i class="grip bl"></i>`;
+        e.querySelector(".oTag").textContent = TAGS[b.label] || NAMES[b.label] || b.label;
         e.title = `${NAMES[b.label] || b.label}: ${DESC[b.label] || ""}`;
         e.addEventListener("pointerenter", () => light(b.label, true));
         e.addEventListener("pointerleave", () => light(b.label, false));
@@ -46,12 +48,16 @@
       const w = Math.max(26, b.w * k), h = Math.max(22, b.h * k);
       e.style.width = `${w}px`;
       e.style.height = `${h}px`;
-      // Too small for the name: only the number shows (the list under the
-      // screen says which is which).
-      e.classList.toggle("tiny", w < 120 || h < 22);
-      e.classList.toggle("short", h < 40);
+      // The name goes inside a box big enough for it, else just under it
+      // (above it, for a box low on the screen); a box at the right edge has
+      // its name lined up to the right, so it is not cut.
+      const top = (b.y - m.y) * k, left = (b.x - m.x) * k;
+      const tag = e.querySelector(".oTag");
+      const inside = h >= 30 && w >= tag.scrollWidth + 12;
+      e.classList.toggle("tagIn", inside);
+      e.classList.toggle("tagUp", !inside && top + h + 26 > screen.clientHeight);
+      e.classList.toggle("tagRight", !inside && left + tag.scrollWidth > screen.clientWidth);
       e.classList.toggle("off", !b.visible);
-      e.querySelector("small").textContent = b.visible ? "" : "escondido agora";
     }
     drawLegend();
   }
@@ -69,8 +75,7 @@
       const r = document.createElement("div");
       r.className = "oLeg";
       r.style.setProperty("--c", COLORS[b.label] || "#aaa");
-      r.innerHTML = `<span class="oNum"></span><span class="oLegTxt"><b></b><small></small></span><span class="oState"></span>`;
-      r.querySelector(".oNum").textContent = num(b.label);
+      r.innerHTML = `<span class="oDot"></span><span class="oLegTxt"><b></b><small></small></span><span class="oState"></span>`;
       r.querySelector("b").textContent = NAMES[b.label] || b.label;
       r.querySelector("small").textContent = DESC[b.label] || "";
       const st = r.querySelector(".oState");
