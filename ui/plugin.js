@@ -8,6 +8,9 @@ const DEFAULTS = {
   enabled: true, widget: true, castCalls: true, hpCalls: true, prewarn: "3",
   size: "60", fg: "#ffd84d", bg: "#000000", bgOpacity: 80, showHp: true,
   speak: true, showRecap: true, volume: 100, bellVolume: 50, voiceName: "", rate: "1.15",
+  // The general pass's options: a beep before each call, the deaths and the
+  // stagger on the big text, how long a call stays.
+  beep: true, deathCalls: true, staggerCalls: true, callHold: "normal",
   thresholds: {}, maxHp: {}, sizes: {}, off: {}, enrage: {},
 };
 let prefs = { ...DEFAULTS };
@@ -48,7 +51,7 @@ function loadVoices() {
 }
 let audio = null;
 function beep(high) {
-  if (prefs.volume <= 0) return;
+  if (prefs.volume <= 0 || prefs.beep === false) return;
   try {
     audio ||= new (window.AudioContext || window.webkitAudioContext)();
     if (audio.state !== "running") audio.resume().catch(() => {});
@@ -103,10 +106,13 @@ const engineHooks = {
   call(c) {
     if (!prefs.enabled) return;
     const at = Date.now();
-    const until = c.end ? Math.max(c.end, at) + 1500 : at + (c.kind === "pre" ? 5000 : 8000);
-    const dead = shown.filter((x) => x.kind === "dead" && x.until > at);
-    const rest = shown.filter((x) => x.kind !== "dead" && x.until > at && x.text !== c.text);
-    shown = [...dead, ...[{ kind: c.kind, text: c.text, sub: c.sub, end: c.end || 0, until }, ...rest].slice(0, dead.length ? 1 : 2)];
+    // Deaths ("☠ Fulano morreu") can be left off the big text.
+    if (c.death && prefs.deathCalls === false) return;
+    const until = window.LudraEngine.callUntil(c, at, prefs.callHold);
+    const next = window.LudraEngine.stackCalls(shown, c, at, until);
+    // A low notice with no room (a mechanic call is on): left out.
+    if (c.low && !next.some((x) => x.low && x.until === until)) return;
+    shown = next;
     if (!c.quiet) say(c.say, c.kind !== "pre");
     send();
   },
@@ -132,6 +138,10 @@ const engineHooks = {
   saveLog(l) {
     a2.storage.set("log", l).catch(() => {});
     renderLog();
+  },
+  // The boss cast bar: what the boss is casting now (castctl.js shows it).
+  bars(list) {
+    window.castBarsLive?.(list);
   },
 };
 const engine = window.LudraEngine.createEngine(DATA, engineHooks);
@@ -163,6 +173,13 @@ let recapLog = [];
 try {
   recapLog = JSON.parse(localStorage.getItem(RECAP_STORE)) || [];
 } catch {}
+// "Esconder nomes" (names.js): the big text is over the game, so its names
+// are hidden as the boxes' are. Only the words drawn: ludraDeaths, the recap
+// log and the Registro keep the real names.
+const NM = window.LudraNames;
+const shownName = (name, info) => (NM ? NM.name(name, info, "game") : name);
+const shownKill = (k) => (NM && k ? { ...k, killer: NM.text(k.killer, "game") } : k);
+const shownRecap = (r) => (NM && r ? { ...shownKill(r), hits: (r.hits || []).map((h) => ({ ...h, from: NM.text(h.from, "game") })) } : r);
 const killOf = (r) => ({ skill: r.skill || "", skill_id: r.skill_id || 0, killer: r.killer || "", damage: r.damage || 0, window_ms: r.window_ms || 0, taken: r.taken || 0 });
 function newRecap(r) {
   const at = Date.now();
@@ -178,12 +195,13 @@ function newRecap(r) {
     // The line already on screen gets the killing blow.
     const old = shown.find((x) => x.deathOf === d);
     if (old) {
-      old.text = `☠ ${r.name} morreu — ${R.short(kill)}`;
+      old.text = `☠ ${shownName(r.name, { me: r.me, cls: r.class, id: r.id })} morreu — ${R.short(kill)}`;
       send();
     }
   } else pendingKill.set(r.name, { at, kill });
   if (r.me && prefs.showRecap !== false) {
-    const card = { kind: "dead", text: R.headline(r), sub: R.detail(r), lines: R.lines(r), end: 0, at, until: at + RECAP_MS };
+    const sr = shownRecap(r);
+    const card = { kind: "dead", text: R.headline(sr), sub: R.detail(sr), lines: R.lines(sr), end: 0, at, until: at + RECAP_MS };
     shown = [card, ...shown.filter((x) => x.kind !== "dead" && x.until > at)].slice(0, 2);
     say(R.voice(r), true);
     send();
@@ -207,10 +225,11 @@ window.__TAURI__?.event.listen("meter", (e) => {
   const key = live && live.key;
   const st = v.boss && v.boss.stagger;
   if (key && st != null && live.cur > 0) {
-    if (lastStagger != null && lastStagger < 85 && st >= 85 && st < 100 && !prefs.off[`${key}:stagger`]) {
+    const stag = prefs.staggerCalls !== false && !prefs.off[`${key}:stagger`];
+    if (lastStagger != null && lastStagger < 85 && st >= 85 && st < 100 && stag) {
       engineHooksCall({ kind: "pre", text: "FALTA POUCO PRO STAGGER", sub: "Guardem o burst para a quebra.", say: "Stagger quase. Guardem o burst" });
     }
-    if (lastStagger != null && lastStagger >= 80 && st <= lastStagger - 50 && !prefs.off[`${key}:stagger`]) {
+    if (lastStagger != null && lastStagger >= 80 && st <= lastStagger - 50 && stag) {
       engineHooksCall({ kind: "cast", text: "QUEBROU! BATAM TUDO", sub: "O boss está atordoado: usem tudo agora.", say: "Quebrou. Batam tudo" });
     }
   }
@@ -264,8 +283,9 @@ window.__TAURI__?.event.listen("meter", (e) => {
     window.ludraDeaths = window.ludraDeaths.slice(-60);
     // Yours is on the big card already.
     if (r.me && kill && prefs.showRecap !== false) continue;
-    engineHooksCall({ kind: "pre", text: kill ? `☠ ${r.name} morreu — ${R.short(kill)}` : `☠ ${r.name} morreu${what ? ` (${what})` : ""}`, sub: "", say: "", quiet: true });
-    const line = shown.find((x) => x.kind === "pre" && x.text.startsWith(`☠ ${r.name} morreu`));
+    const who = shownName(r.name, { me: r.me, cls: r.class, id: r.id });
+    engineHooksCall({ kind: "pre", text: kill ? `☠ ${who} morreu — ${R.short(kill)}` : `☠ ${who} morreu${what ? ` (${what})` : ""}`, sub: "", say: "", quiet: true, death: true });
+    const line = shown.find((x) => x.kind === "pre" && x.text.startsWith(`☠ ${who} morreu`));
     if (line) line.deathOf = death;
   }
 });
@@ -490,7 +510,7 @@ function renderLog() {
 
 // ---- Controls ----------------------------------------------------------
 
-const keys = ["enabled", "widget", "castCalls", "hpCalls", "prewarn", "size", "fg", "bg", "bgOpacity", "showHp", "speak", "showRecap", "volume", "bellVolume", "voiceName", "rate"];
+const keys = ["enabled", "widget", "castCalls", "hpCalls", "prewarn", "size", "fg", "bg", "bgOpacity", "showHp", "speak", "showRecap", "volume", "bellVolume", "voiceName", "rate", "beep", "deathCalls", "staggerCalls", "callHold"];
 function showPrefs() {
   for (const k of keys) {
     const el = $(`.${k}`);
@@ -515,6 +535,16 @@ for (const k of keys) {
   });
 }
 $(".volume").addEventListener("change", () => say("Volume.", true));
+$(".beep").addEventListener("change", () => prefs.beep && beep(true));
+// "Cores padrão": the big text's colors as they came.
+$(".lookReset").addEventListener("click", () => {
+  for (const k of ["fg", "bg"]) {
+    prefs[k] = DEFAULTS[k];
+    $(`.${k}`).value = DEFAULTS[k];
+  }
+  save();
+  send();
+});
 $(".bellVolume").addEventListener("change", () => bell());
 // The voice switch at the top is the same as the one in "Aparência e voz".
 $(".speakTop").addEventListener("change", (e) => {
@@ -551,6 +581,21 @@ $(".test").addEventListener("click", async () => {
     placeWidget();
   }, 9000);
 });
+// The "Testar aviso" key: only the big text (no fake boss, meter or death
+// card), and not during a fight, where it would cover a real call. Says
+// whether it was shown.
+window.ludraTestCall = async () => {
+  if (live) return false;
+  const was = gameOpen;
+  gameOpen = true; // so the big text shows even with the game shut
+  await placeWidget();
+  engine_call_test();
+  setTimeout(() => {
+    gameOpen = was;
+    placeWidget();
+  }, 8000);
+  return true;
+};
 function engine_call_test() {
   const at = Date.now();
   shown = [{ kind: "cast", text: "BINGO!", sub: "Raio revela o quadrado. Todos no azul. Depois, batam tudo.", end: at + 6000, until: at + 7500 }];

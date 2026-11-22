@@ -6,7 +6,9 @@
   const sel = document.querySelector(".presetSel");
   if (!sel) return;
   const nameIn = document.querySelector(".presetName");
-  const KEYS = [".widget", ".size", ".bgOpacity", ".bossOn", ".bossTheme", ".bossScale", ".bossAlpha", ".meterOn", ".meterScale", ".meterAlpha", ".meterOpacity", ".partyOn", ".partyScale", ".partyAlpha"];
+  const KEYS = [".widget", ".size", ".bgOpacity", ".bossOn", ".bossTheme", ".bossScale", ".bossAlpha", ".meterOn", ".meterScale", ".meterAlpha", ".meterOpacity", ".partyOn", ".partyScale", ".partyAlpha", ".castOn", ".castTarget", ".castSub", ".castUnknown", ".castMax", ".castScale", ".castAlpha",
+    // "O que mostrar" of each box (the general pass): a layout carries them too.
+    ".meterRows", ".meterNow", ".meterCp", ".meterPing", ".meterIdle", ".bossStagger", ".bossRage", ".bossAggro", ".bossNext", ".bossKill", ".bossOthers", ".partyOpacity", ".partyDebuffs", ".partyAggro"];
   const get = (k, d) => {
     try {
       const v = localStorage.getItem(`ludra:${k}`);

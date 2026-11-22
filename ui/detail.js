@@ -63,7 +63,10 @@
     who.style.setProperty("--c", (k.COLORS && k.COLORS[d.class]) || "#8892a6");
     if (k.icon) who.append(k.icon(d.class));
     const nm = el("div", "dName");
-    nm.append(el("b", "", d.name || `#${d.id}`));
+    // "Esconder nomes" (names.js): the name drawn; the detail keeps the real one.
+    const N = window.LudraNames;
+    const real = d.name || `#${d.id}`;
+    nm.append(el("b", "", N ? N.name(real, { me: d.me, cls: d.class, id: d.id }, "app", openDemo || null) : real));
     const sub = [(k.NAMES && k.NAMES[d.class]) || "", d.me ? "você" : "", d.deaths > 0 ? `☠ ${d.deaths}` : ""].filter(Boolean).join(" · ");
     if (sub) nm.append(el("span", "", sub));
     who.append(nm);
@@ -111,7 +114,7 @@
       t.append(h);
       for (const g of taken) {
         const r = el("div", "dRow");
-        r.append(el("span", "dSk", (g.skill || "").trim() || "golpe desconhecido"), el("span", "dFrom", (g.from || "").trim() || "—"), el("span", "", num(g.total)), el("span", "", g.hits > 0 ? String(g.hits) : "—"));
+        r.append(el("span", "dSk", (g.skill || "").trim() || "golpe desconhecido"), el("span", "dFrom", (N ? N.text((g.from || "").trim(), "app", openDemo || null) : (g.from || "").trim()) || "—"), el("span", "", num(g.total)), el("span", "", g.hits > 0 ? String(g.hits) : "—"));
         t.append(r);
       }
       panel.append(t);
@@ -144,7 +147,7 @@
 
   function open(id, row) {
     openId = Number(id);
-    openDemo = !!window.meterDetailDemo;
+    openDemo = window.meterDetailDemo || false; // the made-up view, numbered on its own
     seed = row || null;
     if (!back) {
       back = el("div", "dBack");
@@ -168,5 +171,6 @@
   }
 
   document.addEventListener("keydown", (e) => e.key === "Escape" && openId != null && close());
+  window.LudraNames?.onChange(() => openId != null && load());
   window.meterDetail = { open, close, demo, get openId() { return openId; } };
 })();

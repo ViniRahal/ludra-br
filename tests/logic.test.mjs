@@ -113,3 +113,26 @@ console.log("ok", calls.length, "calls");
   assert.ok(!cs.some((c) => c.kind === "hp" && c.text.includes("BINGO 1")), "no late Bingo 1 call");
 }
 console.log("early bingo ok");
+
+// The calls on screen: a key's notice ("GRAVANDO") never pushes a mechanic
+// call off; a mechanic call does push a notice off.
+{
+  const { stackCalls } = ctx.window.LudraEngine;
+  const at = 5_000;
+  const bingo = { kind: "cast", text: "BINGO!", until: at + 4000 };
+  const orbs = { kind: "pre", text: "ORBES", until: at + 4000 };
+  const dead = { kind: "dead", text: "VOCÊ MORREU", until: at + 9000 };
+  const note = { kind: "pre", text: "GRAVANDO", low: true };
+  const texts = (l) => Array.from(l, (x) => x.text);
+  assert.deepEqual(texts(stackCalls([], note, at, at + 5000)), ["GRAVANDO"]);
+  assert.deepEqual(texts(stackCalls([bingo], note, at, at + 5000)), ["BINGO!", "GRAVANDO"]);
+  assert.deepEqual(texts(stackCalls([bingo, orbs], note, at, at + 5000)), ["BINGO!", "ORBES"]);
+  assert.deepEqual(texts(stackCalls([dead, bingo], note, at, at + 5000)), ["VOCÊ MORREU", "BINGO!"]);
+  assert.deepEqual(texts(stackCalls([dead], note, at, at + 5000)), ["VOCÊ MORREU", "GRAVANDO"]);
+  // One notice replaces the last one.
+  const rec = stackCalls([], note, at, at + 5000);
+  assert.deepEqual(texts(stackCalls(rec, { kind: "pre", text: "GRAVAÇÃO PARADA", low: true }, at, at + 5000)), ["GRAVAÇÃO PARADA"]);
+  // A real call still goes first and pushes the notice off when full.
+  assert.deepEqual(texts(stackCalls([bingo, { ...note, until: at + 5000 }], orbs, at, at + 8000)), ["ORBES", "BINGO!"]);
+  assert.deepEqual(texts(stackCalls([bingo], orbs, at, at + 8000)), ["ORBES", "BINGO!"]);
+}

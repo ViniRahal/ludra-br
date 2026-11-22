@@ -16,25 +16,30 @@
     <div class="meter"></div>
     <script src="a2.js"></script>
     <script src="meterview.js"></script>
+    <script src="names.js"></script>
     <script src="arrange.js"></script>
     <script>
       // The meter over the game: drawn from what the program reads, moved by
       // dragging while unlocked, a double-click opens the settings.
       const box = document.querySelector(".meter");
       const T = window.__TAURI__;
-      let view = null, alpha = 1;
+      let view = null, alpha = 1, show = {}, locked = false;
       if (T) {
-        T.core.invoke("hotkey_label").then((k) => { if (k) { window.hotkeyLabel = k; draw(); } }).catch(() => {});
+        T.core.invoke("hotkey_label").then((k) => { if (typeof k === "string") { window.hotkeyLabel = k; draw(); } }).catch(() => {});
         T.event.listen("hotkey", (e) => { window.hotkeyLabel = e.payload; draw(); });
       }
       function draw() {
-        renderMeter(box, view);
-        // Out of a fight it fades, to see the game behind it.
+        renderMeter(box, view, { max: show.max, cp: show.cp, now: show.now, ping: show.ping });
+        // Out of a fight it fades (or hides, or stays: "Fora da luta"), to see the game behind it.
         const fight = !!(view && view.rows && view.rows.length);
-        box.style.opacity = String(fight ? alpha : alpha * 0.5);
+        const a = meterKit.idleAlpha(show.idle || "fade", fight, !locked && arrange.on, alpha);
+        box.style.opacity = String(a);
+        box.style.visibility = a > 0 ? "" : "hidden";
         box.style.transition = "opacity 0.4s";
         const r = box.getBoundingClientRect();
-        T && T.core.invoke("overlay_areas", { areas: [{ x: r.left, y: r.top, width: r.width, height: r.height }] });
+        // Hidden: no area, so clicks there go to the game.
+        const area = a > 0 ? { x: r.left, y: r.top, width: r.width, height: r.height } : { x: 0, y: 0, width: 1, height: 1 };
+        T && T.core.invoke("overlay_areas", { areas: [area] });
       }
       T && T.event.listen("meter", (e) => {
         view = e.payload;
@@ -46,10 +51,12 @@
         box.style.transformOrigin = "0 0";
         box.style.transform = p.scale && p.scale !== 1 ? `scale(${p.scale})` : "";
         alpha = p.alpha ?? 1;
+        show = p.show || {};
         draw();
       });
-      T && T.event.listen("locked", (e) => { document.body.classList.toggle("locked", !!e.payload); draw(); });
+      T && T.event.listen("locked", (e) => { locked = !!e.payload; document.body.classList.toggle("locked", locked); draw(); });
       arrange.listen(draw);
+      LudraNames.onChange(draw); // "Esconder nomes": the switch, or the button below the meter
       let press = null, last = 0, single = 0;
       box.addEventListener("mousedown", (e) => {
         if (e.button !== 0 || document.body.classList.contains("locked")) return;
@@ -85,7 +92,7 @@
         }
       });
       document.addEventListener("contextmenu", (e) => e.preventDefault());
-      T && T.core.invoke("overlay_locked").then((v) => { document.body.classList.toggle("locked", !!v); draw(); });
+      T && T.core.invoke("overlay_locked").then((v) => { locked = !!v; document.body.classList.toggle("locked", locked); draw(); });
       draw();
     </script>
   </body>

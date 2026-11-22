@@ -190,6 +190,10 @@ pub struct View {
     pub recaps: Vec<Recap>,
     /// The party's frames: HP, death, aggro and enemies' debuffs.
     pub frames: Vec<Frame>,
+    /// Raised each time the fight history starts a new boss fight. "Esconder
+    /// nomes" numbers the players again only when it changes: `time_ms` is the
+    /// current target's clock and drops on a target switch mid-fight.
+    pub pull: u32,
 }
 
 /// "Detalhe do jogador": one skill of a player's, this fight.
@@ -347,6 +351,33 @@ impl Meter {
             }
         }
         self.storage.get_nickname(actor).unwrap_or_default()
+    }
+
+    /// The boss cast bar: whom a cast (`09 38`) is aimed at, by name, and
+    /// whether that is you. Your own name comes from your profile, since the
+    /// game sends no nickname record for the local player.
+    pub fn aim_of(&self, target: i64) -> (String, bool) {
+        if target <= 0 {
+            return (String::new(), false);
+        }
+        let me = self.storage.local_player_id() == Some(target);
+        let mut name = self.who(target as i32);
+        if name.is_empty() && me {
+            name = self.storage.local_profile().name.unwrap_or_default();
+        }
+        (name.trim().to_string(), me)
+    }
+
+    /// The cast's target is a monster or an NPC (a summon, an add), not a
+    /// player: "Esconder nomes" leaves its name alone.
+    pub fn aim_is_npc(&self, target: i64) -> bool {
+        target > 0 && (self.storage.mob_code(target as i32).is_some() || self.storage.is_mob(target as i32))
+    }
+
+    /// A skill's name in Portuguese from the meter's table ("" when not known),
+    /// for the cast bar's skills that data.js has no call for.
+    pub fn skill_name(&self, skill: u32) -> String {
+        self.skills.lookup_skill_name(skill as i32)
     }
 
     /// The recap of `victim`'s death at `at`, from the hits they took.
@@ -715,6 +746,18 @@ impl Meter {
                 Some(((cur / max).clamp(0.0, 1.0) * 1000.0).round() / 10.0)
             }),
             players: rows.iter().map(|r| crate::history::FightPlayer { name: r.name.clone(), class: r.class.clone(), me: r.me, dps: r.dps, total: r.total, deaths: r.deaths, cp: r.cp }).collect(),
+            // "Linha do tempo": the gauge (its breaks), the deaths with what
+            // killed, and the frames (who is down, who got up again).
+            stagger: boss.as_ref().filter(|b| b.id == d.target_id).and_then(|b| b.stagger),
+            deaths: self
+                .recaps
+                .iter()
+                .map(|r| (r.at_ms, crate::history::Death { t_ms: 0, name: r.name.clone(), class: r.class.clone(), me: r.me, killer: r.killer.clone(), skill: r.skill.clone(), damage: r.damage }))
+                .collect(),
+            // Trimmed like the deaths' names (the page links a revive to its
+            // death by name); a frame with no name yet is left out.
+            dead_now: frames.iter().filter(|f| f.id != 0 && f.dead).map(|f| f.name.trim().to_string()).filter(|n| !n.is_empty()).collect(),
+            alive_now: frames.iter().filter(|f| f.id != 0 && !f.dead).map(|f| f.name.trim().to_string()).filter(|n| !n.is_empty()).collect(),
         };
         let ended = self.recorder.feed(&sample, skills_me);
         self.finished.extend(ended);
@@ -735,6 +778,7 @@ impl Meter {
             dps: rows.iter().map(|r| r.dps).sum(),
             rows,
             boss,
+            pull: self.recorder.pulls(),
         }
     }
 }

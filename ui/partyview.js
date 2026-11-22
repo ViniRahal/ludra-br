@@ -45,10 +45,12 @@
   }
 
   // Which group cleanse calls to make now, at most one per `gapMs` per debuff;
-  // `last` (a Map key -> ms) is kept by the caller between calls.
-  function cleanseCalls(frames, now, last, gapMs = 8000) {
+  // `last` (a Map key -> ms) is kept by the caller between calls. `min`: how
+  // many with the same debuff make a call (the player's choice, 2 to 5).
+  function cleanseCalls(frames, now, last, gapMs = 8000, min = 3) {
     const out = [];
-    for (const g of groupDebuffs(frames)) {
+    const m = Math.max(2, Math.min(8, Math.round(Number(min)) || 3));
+    for (const g of groupDebuffs(frames, m)) {
       if (now - (last.get(g.key) || -Infinity) < gapMs) continue;
       last.set(g.key, now);
       out.push({
@@ -82,9 +84,12 @@
   }
 
   // view: the meter's (with `frames`, and `boss.aggro`); opts.preview: draw
-  // the empty box to be placed.
+  // the empty box to be placed; opts.debuffs / opts.aggro false: leave those
+  // out ("O que mostrar").
   function renderParty(box, view, opts = {}) {
     const frames = ((view && view.frames) || []).filter((f) => f && f.name);
+    // "Esconder nomes" (names.js): the name drawn, numbered from the meter's views.
+    const N = root.LudraNames;
     box.replaceChildren();
     const show = frames.length && (opts.always || inFight(view));
     box.classList.toggle("empty", !show);
@@ -99,12 +104,12 @@
     const aggroName = view && view.boss && view.boss.aggro;
     for (const f of frames) {
       const p = pctOf(f);
-      const aggro = !!f.aggro || (!!aggroName && aggroName === f.name);
+      const aggro = opts.aggro !== false && (!!f.aggro || (!!aggroName && aggroName === f.name));
       const row = el("div", `pRow${f.me ? " me" : ""}${f.dead ? " dead" : ""}${p != null && !f.dead && p < LOW ? " low" : ""}`);
       row.style.setProperty("--c", COLORS[f.class] || "#9fb4c8");
       const head = el("div", "pHead");
       head.append(icon(f.class));
-      const name = el("span", "pName", f.name);
+      const name = el("span", "pName", N ? N.name(f.name, { me: f.me, cls: f.class, id: f.id }, opts.scope, view) : f.name);
       head.append(name);
       if (aggro) head.append(el("span", "pAggro", "🎯"));
       if (f.dead) head.append(el("span", "pDead", "☠"));
@@ -118,7 +123,7 @@
         row.append(bar);
       }
       const debs = (f.debuffs || []).filter((d) => d && (d.harmful || d.cleansable));
-      if (debs.length && !f.dead) {
+      if (debs.length && !f.dead && opts.debuffs !== false) {
         const chips = el("div", "pChips");
         for (const d of debs.slice(0, MAX_CHIPS)) {
           const c = el("span", `pChip${d.cleansable ? " clean" : ""}`);

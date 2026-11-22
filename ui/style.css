@@ -144,6 +144,8 @@ input[type="color"] { width: 44px; height: 26px; border: 0; background: none; }
 .fDeaths b { color: #ff8a80; }
 .fDeath { margin-top: 2px; }
 .switch[hidden] { display: none; }
+/* An option that only matters with its main switch on ("Esconder nomes"). */
+.switch.dim { opacity: 0.55; }
 /* Detalhe do jogador: the panel a click on the meter opens. */
 .mainMeter .mRow[data-id] { cursor: pointer; }
 .mainMeter .mRow[data-id]:hover { background: rgba(255, 255, 255, 0.09); }
@@ -199,7 +201,7 @@ input[type="color"] { width: 44px; height: 26px; border: 0; background: none; }
 .hBestRow { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; padding: 5px 0; border-top: 1px solid rgba(255,255,255,.06); }
 .hBestRow .note { grid-column: 1 / -1; font-size: 11px; margin: 0; }
 .hH { margin: 14px 0 6px; font-size: 14px; }
-.hChart { display: block; max-width: 100%; border-radius: 8px; }
+.hChart { display: block; max-width: 100%; height: auto; border-radius: 8px; }
 .hLegend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-size: 12px; }
 .hLeg { display: inline-flex; align-items: center; gap: 5px; }
 .hLeg i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
@@ -210,10 +212,61 @@ input[type="color"] { width: 44px; height: 26px; border: 0; background: none; }
 .hSkills th:first-child, .hSkills td:first-child { text-align: left; }
 .btn.danger { border-color: rgba(255,107,98,.5); color: #ff8a80; }
 .btn.danger:hover { background: rgba(255,107,98,.18); }
+/* "Linha do tempo": the replay of a saved fight. */
+.hReplay { margin-top: 2px; }
+.hTl { position: relative; }
+.hTlChart { display: block; max-width: 100%; height: auto; border-radius: 8px; cursor: crosshair; touch-action: manipulation; }
+.hTip { position: absolute; z-index: 1; padding: 7px 10px; border-radius: 8px; background: #1b2028; border: 1px solid rgba(255,255,255,.14); border-left: 3px solid var(--c, #fff); box-shadow: 0 6px 18px rgba(0,0,0,.45); font-size: 12.5px; line-height: 1.4; pointer-events: none; }
+.hTip b { display: block; margin-bottom: 2px; }
+.hTip[hidden] { display: none; }
+.hLeg i.dot { width: 9px; height: 9px; border-radius: 50%; }
+.hHid { margin: 0; font-size: 12px; }
+.hPlay { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+.hPlay .hSeek { flex: 1 1 200px; width: auto; min-width: 140px; }
+.hPlayBtn { min-width: 92px; }
+.hClock { font-variant-numeric: tabular-nums; color: var(--dim); min-width: 84px; }
+.hNow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+.hNowCell { padding: 7px 10px; border-radius: 8px; background: rgba(255,255,255,.04); border: 1px solid var(--line); min-width: 0; }
+.hNowCell b { display: block; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hNowCell.bad b { color: #ff8a80; }
+.hNowLabel { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--dim); }
+.hNowDead { grid-column: 1 / -1; font-size: 13px; color: #ff8a80; }
+.hTlHelp { margin-top: 10px; font-size: 12.5px; }
+.hTlHelp[hidden] { display: none; }
+.hOpts > summary { margin: 0; }
+.hOpts[open] > summary { margin-bottom: 8px; }
+.hTlShowHead { margin: 8px 0 4px; }
+.hTlOpts { margin-left: auto; padding: 2px 10px; font-size: 12px; }
+.hPlayBtn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.hOpts .switch span { min-width: 0; }
 .hAsk { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: rgba(255,107,98,.1); border: 1px solid rgba(255,107,98,.3); }
 @media (max-width: 760px) {
   .hGrid { grid-template-columns: 1fr; }
   .hRow { grid-template-columns: 80px minmax(0, 1fr) 70px; }
   .hRow .hRes, .hRow .hDur, .hRow .hBest { display: none; }
+  .hNow { grid-template-columns: 1fr; }
 }
 .btn.recording{background:#c0392b;border-color:#c0392b;color:#fff}
+.row[hidden] { display: none; }
+.recDir { margin: 2px 0 4px; padding: 6px 10px; border-radius: 6px; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--line); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* "Atalhos de teclado": one row per action (name, key, buttons). */
+.hkRow { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
+.hkRow:first-child { border-top: 0; }
+.hkRow.dim { opacity: 0.55; }
+.hkText { display: flex; flex-direction: column; min-width: 0; }
+.hkDesc { font-size: 12.5px; color: var(--dim); }
+.hkKey { padding: 3px 10px; border-radius: 6px; background: #0f1216; border: 1px solid var(--line); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hkKey.off { color: var(--dim); font-weight: 400; }
+.hkRow.waiting .hkKey { border-color: var(--accent); color: var(--accent); }
+.hkBtns { display: flex; gap: 6px; }
+.hkMsg { margin: -4px 0 8px; font-size: 12.5px; }
+.hkMsg.bad { color: #f0b45a; }
+.hkHidden { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
+.hkHidden[hidden] { display: none; }
+@media (max-width: 560px) { .hkRow { grid-template-columns: 1fr; } }
+.hkSub { margin: -2px 0 8px 14px; padding-left: 10px; border-left: 2px solid var(--line); }
+/* "O que mostrar" in a card: the less used switches, closed by default so the card stays short. */
+details.more { margin: 6px 0 2px; padding: 4px 8px; }
+details.more > summary { font-weight: 600; font-size: 13.5px; color: var(--dim); }
+details.more[open] > summary { margin-bottom: 4px; color: inherit; }
+details.more .switch span { min-width: 0; }

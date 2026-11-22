@@ -6,7 +6,7 @@
 // (https://github.com/taengu/A2Tools-DPS-Meter), also GPL-3.0.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use ludra_core::{capture, flows};
+use ludra_core::{capture, flows, hotkeys};
 
 mod record;
 
@@ -43,10 +43,36 @@ struct App {
     /// The program's windows that have the focus: while one has it, the
     /// player is arranging, and the empty boxes show where things will go.
     focused: Mutex<HashSet<String>>,
-    /// The key that opens this window ("Alt+E", or another if that one is taken).
+    /// The key that opens this window ("Alt+E", or another if that one is
+    /// taken; empty when the player turned it off).
     hotkey: Mutex<String>,
+    /// The global keys ("Atalhos de teclado"): the player's choice, what
+    /// Windows let us have, and the way to the thread that holds them.
+    keys: Mutex<Keys>,
+    /// The windows over the game the page wants shown (overlay_show and
+    /// overlay_hide), so that showing them again after the "esconder
+    /// overlays" key brings back only those.
+    wanted: Mutex<HashSet<String>>,
+    /// Hidden by the "esconder overlays" key: these stay hidden, whatever the
+    /// page asks, until the key is pressed again. None: nothing hidden.
+    hidden: Mutex<Option<Vec<&'static str>>>,
     /// "Detalhe do jogador": asks the reading thread, which owns the meter.
     detail_tx: Mutex<Option<std::sync::mpsc::Sender<DetailAsk>>>,
+    /// The Histórico's options, from the page (history_options).
+    hist: Mutex<HistOpts>,
+}
+
+/// "Histórico": save the replay ("Linha do tempo") and how many fights to keep.
+#[derive(Clone, Copy)]
+struct HistOpts {
+    timeline: bool,
+    keep: usize,
+}
+
+impl Default for HistOpts {
+    fn default() -> Self {
+        HistOpts { timeline: true, keep: ludra_core::history::MAX_FIGHTS }
+    }
 }
 
 /// A player's id, and where to send their detail.
@@ -84,6 +110,21 @@ fn history_delete(app: tauri::AppHandle, id: i64) -> Result<(), String> {
     history_store(&app).ok_or("sem pasta")?.delete(id).map_err(|e| e.to_string())
 }
 
+/// The Histórico's options: the page sends them when it opens and on each change.
+#[tauri::command]
+fn history_options(state: tauri::State<'_, Arc<App>>, timeline: bool, keep: usize) {
+    *state.hist.lock() = HistOpts { timeline, keep: keep.clamp(ludra_core::history::MIN_KEEP, ludra_core::history::MAX_KEEP) };
+}
+
+/// "Linha do tempo": the mechanics the page called during a saved fight.
+#[tauri::command]
+fn history_marks(app: tauri::AppHandle, state: tauri::State<'_, Arc<App>>, id: i64, marks: Vec<ludra_core::history::Mark>) -> Result<bool, String> {
+    if !state.hist.lock().timeline {
+        return Ok(false);
+    }
+    history_store(&app).ok_or("sem pasta")?.add_marks(id, marks).map_err(|e| e.to_string())
+}
+
 /// Your best DPS per boss and character.
 #[tauri::command]
 fn history_bests(app: tauri::AppHandle) -> Vec<ludra_core::history::Best> {
@@ -93,6 +134,144 @@ fn history_bests(app: tauri::AppHandle) -> Vec<ludra_core::history::Best> {
 #[tauri::command]
 fn hotkey_label(state: tauri::State<'_, Arc<App>>) -> String {
     state.hotkey.lock().clone()
+}
+
+/// What one action's key is now.
+#[derive(Serialize, Clone, Default)]
+struct KeyState {
+    /// The key Windows gave us (may be a fallback of the one chosen).
+    key: String,
+    /// "ok", "taken" (another program holds it), "off", "bad" (not a key we take).
+    state: String,
+}
+
+#[derive(Default)]
+struct Keys {
+    config: hotkeys::Config,
+    status: std::collections::BTreeMap<String, KeyState>,
+    /// To the thread that registers the keys (its jobs), and its id, to wake it.
+    tx: Option<std::sync::mpsc::Sender<KeyJob>>,
+    thread: u32,
+}
+
+enum KeyJob {
+    /// Register these keys (and answer once done).
+    Apply(hotkeys::Config, Option<std::sync::mpsc::SyncSender<()>>),
+    /// While the settings wait for a new key, ours are let go: pressing one
+    /// of them would run it instead of being seen by the page.
+    Pause(bool),
+}
+
+fn keys_file(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    app.path().app_config_dir().ok().map(|d| d.join("atalhos.json"))
+}
+
+fn keys_load(app: &tauri::AppHandle) -> hotkeys::Config {
+    keys_file(app)
+        .and_then(|f| std::fs::read(f).ok())
+        .and_then(|b| serde_json::from_slice::<hotkeys::Config>(&b).ok())
+        .unwrap_or_default()
+        .clean()
+}
+
+/// Sends a job to the keys' thread and wakes it.
+fn keys_send(state: &App, job: KeyJob) -> bool {
+    let k = state.keys.lock();
+    let Some(tx) = k.tx.as_ref() else { return false };
+    if tx.send(job).is_err() {
+        return false;
+    }
+    #[cfg(windows)]
+    if k.thread != 0 {
+        unsafe {
+            windows_sys::Win32::UI::WindowsAndMessaging::PostThreadMessageW(k.thread, windows_sys::Win32::UI::WindowsAndMessaging::WM_APP, 0, 0);
+        }
+    }
+    true
+}
+
+fn keys_view(state: &App) -> serde_json::Value {
+    // One lock at a time (toggle_overlays takes them the other way round).
+    let hidden = state.hidden.lock().is_some();
+    let k = state.keys.lock();
+    serde_json::json!({ "config": k.config, "status": k.status, "hidden": hidden })
+}
+
+/// "Atalhos de teclado": the keys chosen, what Windows let us have, and
+/// whether the boxes are hidden by the key now.
+#[tauri::command]
+fn hotkeys_get(state: tauri::State<'_, Arc<App>>) -> serde_json::Value {
+    keys_view(&state)
+}
+
+/// New keys from the settings: saved, then registered (waits for Windows'
+/// answer, a moment at most, so the page can say which one is taken).
+#[tauri::command]
+async fn hotkeys_set(app: tauri::AppHandle, state: tauri::State<'_, Arc<App>>, config: hotkeys::Config) -> Result<serde_json::Value, String> {
+    let config = config.clean();
+    // Registered even when the file can't be written: the page paused the
+    // keys while waiting for a new one, and this is what ends the pause. The
+    // keys work now; only the next start would lose them (said on the card).
+    let mut save_error = None;
+    if let Some(f) = keys_file(&app) {
+        let _ = std::fs::create_dir_all(f.parent().unwrap());
+        if let Err(e) = std::fs::write(&f, serde_json::to_vec_pretty(&config).unwrap_or_default()) {
+            save_error = Some(format!("As teclas valem agora, mas não consegui salvar para a próxima vez: {e}"));
+        }
+    }
+    state.keys.lock().config = config.clone();
+    let (back, rx) = sync_channel(1);
+    if keys_send(&state, KeyJob::Apply(config, Some(back))) {
+        let _ = tauri::async_runtime::spawn_blocking(move || rx.recv_timeout(Duration::from_secs(3))).await;
+    }
+    let mut v = keys_view(&state);
+    if let Some(e) = save_error {
+        v["saveError"] = serde_json::Value::String(e);
+    }
+    Ok(v)
+}
+
+#[tauri::command]
+fn hotkeys_pause(state: tauri::State<'_, Arc<App>>, on: bool) {
+    keys_send(&state, KeyJob::Pause(on));
+}
+
+/// Hides the boxes over the game (the ones the option says), or brings back
+/// the ones the page wants shown. The key and the settings' button use it.
+fn toggle_overlays(app: &tauri::AppHandle) -> bool {
+    let state = app.state::<Arc<App>>();
+    let which = state.keys.lock().config.overlays.clone();
+    let mut hidden = state.hidden.lock();
+    let now_hidden = match hidden.take() {
+        Some(list) => {
+            let wanted = state.wanted.lock();
+            for label in list {
+                if let Some(w) = over_game(app, label).filter(|_| wanted.contains(label)) {
+                    let _ = w.show();
+                    let _ = w.set_always_on_top(true);
+                }
+            }
+            false
+        }
+        None => {
+            let list = hotkeys::overlays_hidden_by(&which, &OVER_GAME);
+            for label in &list {
+                if let Some(w) = over_game(app, label) {
+                    let _ = w.hide();
+                }
+            }
+            *hidden = Some(list);
+            true
+        }
+    };
+    drop(hidden);
+    let _ = app.emit("overlays-hidden", now_hidden);
+    now_hidden
+}
+
+#[tauri::command]
+fn overlays_toggle(app: tauri::AppHandle) -> bool {
+    toggle_overlays(&app)
 }
 
 fn arranging_now(state: &App) -> bool {
@@ -127,8 +306,9 @@ struct Area {
 }
 
 /// The windows drawn over the game: the big text, the damage meter, the boss
-/// panel and the party's frames.
-const OVER_GAME: [&str; 4] = ["overlay", "meter", "boss", "party"];
+/// panel, the party's frames and the boss cast bar (a window of its own, so it
+/// can sit anywhere, apart from the boss panel).
+const OVER_GAME: [&str; 5] = ["overlay", "meter", "boss", "party", "cast"];
 
 fn place_file(app: &tauri::AppHandle, label: &str) -> Option<std::path::PathBuf> {
     let name = if label == "overlay" { "posicao.json".to_string() } else { format!("posicao-{label}.json") };
@@ -154,7 +334,7 @@ fn overlay_layout(app: tauri::AppHandle, state: tauri::State<'_, Arc<App>>) -> s
         let Some(w) = app.get_webview_window(label) else { continue };
         let Ok(p) = w.outer_position() else { continue };
         let s = w.scale_factor().unwrap_or(1.0);
-        let fallback = match label { "overlay" => (420.0, 110.0), "boss" => (440.0, 130.0), "party" => (260.0, 300.0), _ => (390.0, 180.0) };
+        let fallback = match label { "overlay" => (420.0, 110.0), "boss" => (440.0, 130.0), "party" => (260.0, 300.0), "cast" => (360.0, 60.0), _ => (390.0, 180.0) };
         let (mut x0, mut y0, mut x1, mut y1) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
         for a in areas.get(label).map(|v| v.as_slice()).unwrap_or(&[]) {
             if a.width <= 2.0 || a.height <= 2.0 {
@@ -185,6 +365,28 @@ fn overlay_layout(app: tauri::AppHandle, state: tauri::State<'_, Arc<App>>) -> s
 fn overlay_move(app: tauri::AppHandle, label: String, x: i32, y: i32) {
     if let Some(w) = over_game(&app, &label) {
         let _ = w.set_position(PhysicalPosition::new(x, y));
+    }
+}
+
+/// "Voltar as caixas ao lugar inicial": each box over the game goes back to
+/// where it starts on a first install (tauri.conf.json), on the screen the
+/// meter is on, so a box lost off-screen (a monitor unplugged, a resolution
+/// change) can be found again. The Moved event then saves the new place.
+#[tauri::command]
+fn overlay_reset_positions(app: tauri::AppHandle) {
+    let mon = app
+        .get_webview_window("meter")
+        .and_then(|w| w.current_monitor().ok().flatten())
+        .or_else(|| app.primary_monitor().ok().flatten());
+    let (mx, my, scale) = mon.as_ref().map(|m| (m.position().x, m.position().y, m.scale_factor())).unwrap_or((0, 0, 1.0));
+    for label in OVER_GAME {
+        let Some(w) = app.get_webview_window(label) else { continue };
+        let Some(cfg) = app.config().app.windows.iter().find(|c| c.label == label) else { continue };
+        let (Some(x), Some(y)) = (cfg.x, cfg.y) else { continue };
+        if let Some(f) = place_file(&app, label) {
+            let _ = std::fs::remove_file(f);
+        }
+        let _ = w.set_position(PhysicalPosition::new(mx + (x * scale) as i32, my + (y * scale) as i32));
     }
 }
 
@@ -266,19 +468,27 @@ fn status(state: tauri::State<'_, Arc<App>>) -> Status {
     state.status.lock().clone()
 }
 
-/// Shows a window over the game ("overlay", "meter", "boss" or "party") at this size (CSS pixels).
+/// Shows a window over the game ("overlay", "meter", "boss", "party" or "cast") at this size (CSS pixels).
 #[tauri::command]
-fn overlay_show(app: tauri::AppHandle, width: f64, height: f64, label: Option<String>) {
-    let Some(w) = over_game(&app, label.as_deref().unwrap_or("overlay")) else { return };
+fn overlay_show(app: tauri::AppHandle, state: tauri::State<'_, Arc<App>>, width: f64, height: f64, label: Option<String>) {
+    let label = label.unwrap_or_else(|| "overlay".into());
+    let Some(w) = over_game(&app, &label) else { return };
     let scale = w.scale_factor().unwrap_or(1.0);
     let _ = w.set_size(PhysicalSize::new((width * scale) as u32, (height * scale) as u32));
+    state.wanted.lock().insert(label.clone());
+    // Hidden by the key: it comes back when the key is pressed again.
+    if state.hidden.lock().as_ref().is_some_and(|h| h.contains(&label.as_str())) {
+        return;
+    }
     let _ = w.show();
     let _ = w.set_always_on_top(true);
 }
 
 #[tauri::command]
-fn overlay_hide(app: tauri::AppHandle, label: Option<String>) {
-    if let Some(w) = over_game(&app, label.as_deref().unwrap_or("overlay")) {
+fn overlay_hide(app: tauri::AppHandle, state: tauri::State<'_, Arc<App>>, label: Option<String>) {
+    let label = label.unwrap_or_else(|| "overlay".into());
+    state.wanted.lock().remove(&label);
+    if let Some(w) = over_game(&app, &label) {
         let _ = w.hide();
     }
 }
@@ -376,9 +586,16 @@ fn left_down() -> bool {
 }
 
 /// Starts or stops Game Bar's recording (the same key does both).
+/// `start_at` comes with a start: a finish still waiting for the previous
+/// video must not take this one's.
 #[tauri::command]
-fn record_toggle() -> bool {
-    record::toggle()
+async fn record_toggle(start_at: Option<u64>) -> bool {
+    if let Some(at) = start_at {
+        record::started(at);
+    }
+    // toggle() may wait (the game coming to front, the record key's Shift or
+    // Ctrl let go): not on the main thread, or the windows would freeze.
+    tauri::async_runtime::spawn_blocking(record::toggle).await.unwrap_or(false)
 }
 
 #[tauri::command]
@@ -391,17 +608,41 @@ fn record_game_front() -> bool {
     record::game_in_front()
 }
 
+/// After the stop key: waits for Game Bar to finish the video, then moves it
+/// (and writes the fight's log next to it) where the player chose.
 #[tauri::command]
-fn record_save_log(name: String, text: String) -> Result<String, String> {
-    record::save_log(&name, &text)
+async fn record_finish(args: record::FinishArgs) -> Result<record::Finish, String> {
+    tauri::async_runtime::spawn_blocking(move || record::finish(args)).await.map_err(|e| e.to_string())
 }
 
+/// Where Game Bar saves, shown as the default folder.
 #[tauri::command]
-fn record_open_folder() {
-    if let Some(d) = record::captures_dir() {
-        let _ = std::fs::create_dir_all(&d);
-        #[cfg(windows)]
-        let _ = std::process::Command::new("explorer").arg(d).spawn();
+fn record_default_dir() -> Option<String> {
+    record::captures_dir().map(|d| d.to_string_lossy().into())
+}
+
+/// Windows' folder picker, over the settings window. Ok(None) when
+/// cancelled, Err when it could not be opened.
+#[tauri::command]
+async fn record_pick_folder(window: tauri::WebviewWindow, start: Option<String>) -> Result<Option<String>, String> {
+    #[cfg(windows)]
+    let owner = window.hwnd().map(|h| h.0 as isize).unwrap_or(0);
+    #[cfg(not(windows))]
+    let owner = {
+        let _ = &window;
+        0
+    };
+    tauri::async_runtime::spawn_blocking(move || record::pick_folder(owner, start)).await.map_err(|e| e.to_string())?
+}
+
+/// Opens the chosen folder (empty: Game Bar's). With one folder per day,
+/// today's, when there is one yet (made only when a video goes in).
+#[tauri::command]
+fn record_open_folder(dir: Option<String>, day: Option<String>) {
+    let d = dir.filter(|d| !d.trim().is_empty()).map(|d| std::path::PathBuf::from(d.trim())).or_else(record::captures_dir);
+    if let Some(d) = d {
+        let today = ludra_core::recfiles::target_dir(&d, day.as_deref().unwrap_or(""));
+        record::open_folder(if today.is_dir() { &today } else { &d });
     }
 }
 
@@ -532,48 +773,214 @@ fn clean_after_update() {
     }
 }
 
-/// Alt+E, from anywhere (the game too): opens this window, or tucks it away
-/// when it is already in front.
-fn hotkey(app: tauri::AppHandle) {
+/// Opens this window, or tucks it away when it is already in front.
+fn open_or_hide_main(app: &tauri::AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let front = w.is_visible().unwrap_or(false) && !w.is_minimized().unwrap_or(false) && w.is_focused().unwrap_or(false);
+        if front {
+            let _ = w.minimize();
+        } else {
+            let _ = w.unminimize();
+            let _ = w.show();
+            let _ = w.set_focus();
+        }
+    }
+}
+
+/// A key was pressed (from anywhere, the game too). The windows are moved
+/// here; what the page owns (the recording, the names, the test) is told to
+/// it, which also says on the big text what happened.
+fn fire_key(app: &tauri::AppHandle, action: &str) {
+    match action {
+        "open" => open_or_hide_main(app),
+        "overlays" => {
+            toggle_overlays(app);
+        }
+        _ => {
+            let _ = app.emit("hotkey-action", action);
+        }
+    }
+}
+
+/// The global keys (RegisterHotKey, like A2Tools DPS Meter's HotkeyManager in
+/// vendor/a2tools, GPL-3.0): one thread holds them and gets WM_HOTKEY; the
+/// settings send it new keys through a channel and wake it with WM_APP.
+/// Nothing here looks at the game: Windows tells us the key was pressed.
+fn hotkey(app: tauri::AppHandle, state: Arc<App>) {
+    let (tx, rx) = std::sync::mpsc::channel::<KeyJob>();
+    {
+        let mut k = state.keys.lock();
+        k.config = keys_load(&app);
+        // What the pages show until Windows answers.
+        *state.hotkey.lock() = if k.config.on { k.config.key("open").to_string() } else { String::new() };
+        let _ = tx.send(KeyJob::Apply(k.config.clone(), None));
+        k.tx = Some(tx);
+    }
     #[cfg(windows)]
     std::thread::spawn(move || unsafe {
-        use windows_sys::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, MOD_ALT, MOD_NOREPEAT};
-        use windows_sys::Win32::UI::WindowsAndMessaging::{GetMessageW, MSG, WM_HOTKEY};
-        use windows_sys::Win32::UI::Input::KeyboardAndMouse::{MOD_CONTROL, MOD_SHIFT};
-        // Alt+E; right after an update the old copy may still hold it a
-        // moment. Another program holding it for good (Questlog uses Alt+E
-        // too): then Alt+Shift+E, then Ctrl+Alt+E. The page shows which.
-        let mut got = None;
-        'find: for (mods, label, tries) in [(MOD_ALT, "Alt+E", 16), (MOD_ALT | MOD_SHIFT, "Alt+Shift+E", 1), (MOD_ALT | MOD_CONTROL, "Ctrl+Alt+E", 1)] {
-            for _ in 0..tries {
-                if RegisterHotKey(std::ptr::null_mut(), 1, mods | MOD_NOREPEAT, 'E' as u32) != 0 {
-                    got = Some(label);
-                    break 'find;
-                }
-                std::thread::sleep(Duration::from_millis(500));
-            }
-        }
-        let Some(label) = got else { return };
-        *app.state::<Arc<App>>().hotkey.lock() = label.to_string();
-        let _ = app.emit("hotkey", label);
+        use windows_sys::Win32::System::Threading::GetCurrentThreadId;
+        use windows_sys::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, UnregisterHotKey, MOD_NOREPEAT};
+        use windows_sys::Win32::UI::WindowsAndMessaging::{GetMessageW, KillTimer, PeekMessageW, SetTimer, MSG, PM_NOREMOVE, WM_APP, WM_HOTKEY, WM_TIMER, WM_USER};
+
         let mut msg: MSG = std::mem::zeroed();
-        while GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0) > 0 {
-            if msg.message == WM_HOTKEY {
-                if let Some(w) = app.get_webview_window("main") {
-                    let front = w.is_visible().unwrap_or(false) && !w.is_minimized().unwrap_or(false) && w.is_focused().unwrap_or(false);
-                    if front {
-                        let _ = w.minimize();
-                    } else {
-                        let _ = w.unminimize();
-                        let _ = w.show();
-                        let _ = w.set_focus();
+        // Makes this thread's message queue now, so a wake posted before the
+        // first GetMessageW is kept.
+        PeekMessageW(&mut msg, std::ptr::null_mut(), WM_USER, WM_USER, PM_NOREMOVE);
+        state.keys.lock().thread = GetCurrentThreadId();
+
+        // The ids held now (each action's place in ACTIONS, from 1).
+        let mut held: Vec<i32> = Vec::new();
+        let release = |held: &mut Vec<i32>| {
+            for id in held.drain(..) {
+                UnregisterHotKey(std::ptr::null_mut(), id);
+            }
+        };
+        let take = |mods: u32, vk: u32, id: i32| RegisterHotKey(std::ptr::null_mut(), id, mods | MOD_NOREPEAT, vk) != 0;
+
+        // `first`: right after an update the old copy may still hold the keys
+        // a moment, so a taken one is tried again for a few seconds.
+        let apply = |config: &hotkeys::Config, held: &mut Vec<i32>, first: bool| {
+            release(held);
+            let mut status = std::collections::BTreeMap::new();
+            let mut missing: Vec<(usize, u32, u32)> = Vec::new();
+            for (n, a) in hotkeys::ACTIONS.iter().enumerate() {
+                let label = config.key(a);
+                let st = if !config.on || label.is_empty() {
+                    KeyState { key: label.into(), state: "off".into() }
+                } else {
+                    match hotkeys::parse(label).filter(|&(m, v)| hotkeys::allowed(m, v)) {
+                        None => KeyState { key: label.into(), state: "bad".into() },
+                        Some((m, v)) => {
+                            let id = n as i32 + 1;
+                            if take(m, v, id) {
+                                held.push(id);
+                                KeyState { key: label.into(), state: "ok".into() }
+                            } else {
+                                missing.push((n, m, v));
+                                KeyState { key: label.into(), state: "taken".into() }
+                            }
+                        }
+                    }
+                };
+                status.insert(a.to_string(), st);
+            }
+            if first {
+                for _ in 0..16 {
+                    if missing.is_empty() {
+                        break;
+                    }
+                    std::thread::sleep(Duration::from_millis(500));
+                    missing.retain(|&(n, m, v)| {
+                        let id = n as i32 + 1;
+                        if take(m, v, id) {
+                            held.push(id);
+                            if let Some(s) = status.get_mut(hotkeys::ACTIONS[n]) {
+                                s.state = "ok".into();
+                            }
+                            false
+                        } else {
+                            true
+                        }
+                    });
+                }
+            }
+            // Alt+E held for good by another program (Questlog uses it too),
+            // and the player never chose another: Alt+Shift+E, then Ctrl+Alt+E,
+            // as before. The page shows which one it got.
+            let open = status.get("open").cloned().unwrap_or_default();
+            if open.state == "taken" && open.key == hotkeys::OPEN_DEFAULT {
+                let others: Vec<&str> = hotkeys::ACTIONS.iter().map(|a| config.key(a)).collect();
+                for alt in hotkeys::OPEN_FALLBACKS {
+                    if others.contains(&alt) {
+                        continue;
+                    }
+                    let Some((m, v)) = hotkeys::parse(alt) else { continue };
+                    if take(m, v, 1) {
+                        held.push(1);
+                        status.insert("open".into(), KeyState { key: alt.into(), state: "ok".into() });
+                        break;
                     }
                 }
+            }
+            let open = status.get("open").cloned().unwrap_or_default();
+            let label = if open.state == "ok" { open.key } else { String::new() };
+            *state.hotkey.lock() = label.clone();
+            state.keys.lock().status = status;
+            let _ = app.emit("hotkey", label);
+            let _ = app.emit("hotkeys", keys_view(&state));
+        };
+
+        let mut first = true;
+        let mut config = hotkeys::Config::default();
+        let mut paused = false;
+        let mut pause_timer: usize = 0;
+        let jobs = |held: &mut Vec<i32>, config: &mut hotkeys::Config, paused: &mut bool, pause_timer: &mut usize, first: &mut bool| {
+            while let Ok(job) = rx.try_recv() {
+                match job {
+                    KeyJob::Apply(c, back) => {
+                        *config = c;
+                        // A new key chosen also ends the wait for one.
+                        if *pause_timer != 0 {
+                            KillTimer(std::ptr::null_mut(), *pause_timer);
+                            *pause_timer = 0;
+                        }
+                        *paused = false;
+                        apply(config, held, *first);
+                        *first = false;
+                        if let Some(b) = back {
+                            let _ = b.try_send(());
+                        }
+                    }
+                    KeyJob::Pause(true) => {
+                        release(held);
+                        *paused = true;
+                        // The page forgot to give them back (closed while
+                        // waiting): they come back by themselves. A bit after
+                        // the page's own 30 s wait (hotkeysctl.js), so a key
+                        // pressed while it still waits is not run.
+                        if *pause_timer != 0 {
+                            KillTimer(std::ptr::null_mut(), *pause_timer);
+                        }
+                        *pause_timer = SetTimer(std::ptr::null_mut(), 0, 32_000, None);
+                    }
+                    KeyJob::Pause(false) => {
+                        if *pause_timer != 0 {
+                            KillTimer(std::ptr::null_mut(), *pause_timer);
+                            *pause_timer = 0;
+                        }
+                        if *paused {
+                            *paused = false;
+                            apply(config, held, false);
+                        }
+                    }
+                }
+            }
+        };
+        jobs(&mut held, &mut config, &mut paused, &mut pause_timer, &mut first);
+        while GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0) > 0 {
+            match msg.message {
+                WM_HOTKEY => {
+                    if let Some(a) = (msg.wParam as usize).checked_sub(1).and_then(|n| hotkeys::ACTIONS.get(n)) {
+                        fire_key(&app, a);
+                    }
+                }
+                WM_APP => jobs(&mut held, &mut config, &mut paused, &mut pause_timer, &mut first),
+                WM_TIMER if pause_timer != 0 && msg.wParam == pause_timer => {
+                    KillTimer(std::ptr::null_mut(), pause_timer);
+                    pause_timer = 0;
+                    if paused {
+                        paused = false;
+                        apply(&config, &mut held, false);
+                    }
+                }
+                _ => {}
             }
         }
     });
     #[cfg(not(windows))]
-    let _ = app;
+    {
+        let _ = (app, state, rx);
+    }
 }
 
 fn start_capture(app: tauri::AppHandle, state: Arc<App>) {
@@ -631,8 +1038,17 @@ fn start_capture(app: tauri::AppHandle, state: Arc<App>) {
                         let batch: Vec<serde_json::Value> = events
                             .into_iter()
                             .map(|e| {
-                                let mut v = serde_json::to_value(e).unwrap_or_default();
+                                let mut v = serde_json::to_value(&e).unwrap_or_default();
                                 v["at"] = at.into();
+                                // The boss cast bar: the aimed-at player's name (names stay
+                                // on this computer) and the skill's name when data.js has none.
+                                if let (ludra_core::parser::Event::Cast { skill, target, .. }, Some(meter)) = (&e, flows.meter.as_ref()) {
+                                    let (name, me) = meter.aim_of(*target);
+                                    v["target_name"] = name.into();
+                                    v["target_me"] = me.into();
+                                    v["target_npc"] = meter.aim_is_npc(*target).into();
+                                    v["skill_name"] = meter.skill_name(*skill).into();
+                                }
                                 v
                             })
                             .collect();
@@ -655,8 +1071,12 @@ fn start_capture(app: tauri::AppHandle, state: Arc<App>) {
                     if let Some(meter) = flows.meter.as_mut() {
                         let view = meter.view(now);
                         // A boss fight ended: saved, and a record beaten is told.
-                        for fight in meter.take_finished() {
-                            if let Some(store) = history_store(&app) {
+                        for mut fight in meter.take_finished() {
+                            let opts = *state.hist.lock();
+                            if !opts.timeline {
+                                fight.drop_replay();
+                            }
+                            if let Some(store) = history_store(&app).map(|s| s.keep(opts.keep)) {
                                 match store.save(&fight) {
                                     Ok(best) => {
                                         let _ = app.emit("history-saved", fight.id);
@@ -689,10 +1109,10 @@ fn start_capture(app: tauri::AppHandle, state: Arc<App>) {
 }
 
 fn main() {
-    let state = Arc::new(App { status: Mutex::new(Status { capture: "starting".into(), ..Default::default() }), locked: Mutex::new(false), areas: Mutex::new(HashMap::new()), focused: Mutex::new(HashSet::new()), hotkey: Mutex::new(String::new()), detail_tx: Mutex::new(None) });
+    let state = Arc::new(App { status: Mutex::new(Status { capture: "starting".into(), ..Default::default() }), locked: Mutex::new(false), areas: Mutex::new(HashMap::new()), focused: Mutex::new(HashSet::new()), hotkey: Mutex::new(String::new()), keys: Mutex::new(Keys::default()), wanted: Mutex::new(HashSet::new()), hidden: Mutex::new(None), detail_tx: Mutex::new(None), hist: Mutex::new(HistOpts::default()) });
     tauri::Builder::default()
         .manage(state.clone())
-        .invoke_handler(tauri::generate_handler![status, overlay_show, overlay_hide, overlay_lock, overlay_locked, overlay_drag, overlay_areas, show_main, open_npcap, arranging, update_now, update_download, update_restart, hotkey_label, overlay_layout, overlay_move, send_log, meter_detail, history_list, history_get, history_delete, history_bests, record_toggle, record_last, record_game_front, record_save_log, record_open_folder])
+        .invoke_handler(tauri::generate_handler![status, overlay_show, overlay_hide, overlay_lock, overlay_locked, overlay_drag, overlay_areas, show_main, open_npcap, arranging, update_now, update_download, update_restart, hotkey_label, hotkeys_get, hotkeys_set, hotkeys_pause, overlays_toggle, overlay_layout, overlay_move, overlay_reset_positions, send_log, meter_detail, history_list, history_get, history_delete, history_bests, history_options, history_marks, record_toggle, record_last, record_game_front, record_finish, record_default_dir, record_pick_folder, record_open_folder])
         .setup(move |app| {
             let handle = app.handle().clone();
             for label in OVER_GAME {
@@ -732,7 +1152,7 @@ fn main() {
                 });
             }
             std::thread::spawn(clean_after_update);
-            hotkey(handle.clone());
+            hotkey(handle.clone(), state.clone());
             follow_cursor(handle.clone(), state.clone());
             start_capture(handle, state.clone());
             Ok(())

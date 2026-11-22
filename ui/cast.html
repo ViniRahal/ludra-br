@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Ludra BR - cast do boss</title>
+    <link rel="stylesheet" href="boss.css" />
+  </head>
+  <body>
+    <div class="casts t-moldura gone"></div>
+    <script src="names.js"></script>
+    <script src="arrange.js"></script>
+    <script src="bossview.js"></script>
+    <script>
+      // The boss cast bar over the game: what the boss is casting, sent by the
+      // settings window (castctl.js), each bar running down here. Its own box,
+      // dragged like the others; a double-click opens the settings.
+      const box = document.querySelector(".casts");
+      const T = window.__TAURI__;
+      let bars = [], look = {}, locked = false, shownArea = "";
+      function draw() {
+        const n = renderCasts(box, bars, { target: look.target !== false, sub: !!look.sub, preview: !locked && arrange.on });
+        if (!n) bars = []; // all run out: back to the slow redraw
+        // Nothing on screen: no area, so the mouse goes straight to the game.
+        const r = box.getBoundingClientRect();
+        const areas = n || (!locked && arrange.on) ? [{ x: r.left, y: r.top, width: Math.max(1, r.width), height: Math.max(1, r.height) }] : [];
+        const k = JSON.stringify(areas);
+        if (k !== shownArea) {
+          shownArea = k;
+          T && T.core.invoke("overlay_areas", { areas });
+        }
+      }
+      // Ten times a second only while a bar runs; else four, for the preview.
+      let quick = 0;
+      setInterval(() => {
+        if (bars.length || ++quick % 3 === 0) draw();
+      }, 100);
+      arrange.listen(draw);
+      LudraNames.onChange(draw); // "Esconder nomes" turned on or off (the bars' signature changes)
+      if (T) {
+        T.event.listen("cast-bars", (e) => { bars = Array.isArray(e.payload) ? e.payload : []; draw(); });
+        T.event.listen("cast-look", (e) => {
+          look = e.payload || {};
+          box.className = `casts t-${look.theme || "moldura"}`;
+          box.dataset.sig = "";
+          box.style.transformOrigin = "0 0";
+          box.style.transform = look.scale && look.scale !== 1 ? `scale(${look.scale})` : "";
+          box.style.opacity = String(look.alpha ?? 1);
+          shownArea = "";
+          draw();
+        });
+        T.event.listen("locked", (e) => { locked = !!e.payload; document.body.classList.toggle("locked", locked); draw(); });
+        T.core.invoke("overlay_locked").then((v) => { locked = !!v; document.body.classList.toggle("locked", locked); draw(); });
+        T.event.emitTo("main", "cast-hello", {});
+      }
+      let press = null, last = 0;
+      box.addEventListener("mousedown", (e) => {
+        if (e.button !== 0 || locked) return;
+        press = { x: e.screenX, y: e.screenY };
+      });
+      document.addEventListener("mousemove", (e) => {
+        if (!press || !(e.buttons & 1)) return void (press = null);
+        if (Math.abs(e.screenX - press.x) + Math.abs(e.screenY - press.y) >= 4) {
+          press = null;
+          last = 0;
+          T && T.core.invoke("overlay_drag");
+        }
+      });
+      document.addEventListener("mouseup", () => {
+        if (!press) return;
+        press = null;
+        const now = Date.now();
+        if (now - last <= 400) { last = 0; T && T.core.invoke("show_main"); } else last = now;
+      });
+      document.addEventListener("contextmenu", (e) => e.preventDefault());
+      draw();
+    </script>
+  </body>
+</html>

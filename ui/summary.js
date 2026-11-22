@@ -8,11 +8,38 @@
   const { COLORS, short, clock, icon, el } = K;
   const R = window.LudraRecap;
   // "12:31 Fulano — Raio em linha (85 mil, 2,1 s)", or the old "(mecânica)".
-  const deathText = (x) => (R ? R.summary(x) : `${clock(x.t)} ${x.name}${x.mech ? ` (${x.mech})` : ""}`);
+  // nm: the names to draw ("Esconder nomes"); the saved fight keeps the real ones.
+  const deathText = (x, nm) => {
+    if (nm) x = { ...x, name: nm(x.name), kill: x.kill ? { ...x.kill, killer: nm.text(x.kill.killer) } : x.kill };
+    return R ? R.summary(x) : `${clock(x.t)} ${x.name}${x.mech ? ` (${x.mech})` : ""}`;
+  };
+  // "Esconder nomes" (names.js): each fight keeps the numbers its players had
+  // on the live meter (end() saves them), so "Jogador 1" on the Resumo is the
+  // same player as on the meter. The card follows "Onde esconder" ("app");
+  // the copied image goes to Discord or a live, so it follows the main
+  // switch alone ("game").
+  const plain = Object.assign((n) => n, { text: (n) => n });
+  const namesOf = (ranked, scope = "app") => (window.LudraNames ? window.LudraNames.list(ranked, scope) : plain);
   const T = window.__TAURI__;
   const STORE = "ludra:fights";
-  const KEEP = 15;
   const MIN_WIPE_MS = 30_000; // a wipe shorter than this: a bad pull, not kept
+  // "Opções do resumo": how many cards to keep (15 as before), and the wipes.
+  const opt = (k, d) => {
+    try {
+      const v = localStorage.getItem(`ludra:${k}`);
+      return v == null ? d : JSON.parse(v);
+    } catch {
+      return d;
+    }
+  };
+  const setOpt = (k, v) => {
+    try {
+      localStorage.setItem(`ludra:${k}`, JSON.stringify(v));
+    } catch {}
+  };
+  let keepN = Math.max(1, Number(opt("fightsKeep", 15)) || 15);
+  let keepWipes = opt("fightsWipes", true) !== false;
+  const keep = () => keepN;
 
   const load = () => {
     try {
@@ -24,7 +51,7 @@
   let fights = load();
   const save = () => {
     try {
-      localStorage.setItem(STORE, JSON.stringify(fights.slice(0, KEEP)));
+      localStorage.setItem(STORE, JSON.stringify(fights.slice(0, keep())));
     } catch {}
   };
 
@@ -41,15 +68,18 @@
     f.done = true;
     won = won || !!f.killed;
     const dur = won && lastView && lastView.time_ms > 0 ? lastView.time_ms : Date.now() - f.pullAt;
-    if (!won && dur < MIN_WIPE_MS) return;
-    const rows = ((lastView && lastView.rows) || []).map((r) => ({ name: r.name, class: r.class, dps: r.dps, total: r.total, deaths: r.deaths || 0, me: !!r.me })).sort((a, b) => b.dps - a.dps);
+    if (!won && (dur < MIN_WIPE_MS || !keepWipes)) return;
+    // no/cno: the player's numbers on the live meter ("Esconder nomes"); the
+    // names saved are the real ones.
+    const N = window.LudraNames;
+    const rows = ((lastView && lastView.rows) || []).map((r) => ({ id: r.id, name: r.name, class: r.class, dps: r.dps, total: r.total, deaths: r.deaths || 0, me: !!r.me, ...((N && N.numbers(r.name, r.id)) || {}) })).sort((a, b) => b.dps - a.dps);
     const mechs = (window.ludraLog?.() || [])
       .filter((e) => e.boss === f.key && e.at >= f.pullAt - 2000 && e.what && !/^(skill|efeito) /.test(String(e.what.title || "")))
       .map((e) => ({ t: e.at - f.pullAt, title: `${e.what.title}${e.what.n > 1 ? ` ${e.what.n}` : ""}`, pct: e.pct }));
     const deaths = (window.ludraDeaths || []).filter((d) => d.pull === f.pullAt).map((d) => ({ t: d.at - f.pullAt, name: d.name, mech: d.mech, kill: d.kill || null }));
     if (!rows.length && !mechs.length) return; // nothing seen of it
     fights.unshift({ id: f.pullAt, key: f.key, name: f.name, diff: f.diff || null, at: Date.now(), dur, won, low: Math.round(f.low * 10) / 10, rows, mechs, deaths });
-    fights = fights.slice(0, KEEP);
+    fights = fights.slice(0, keep());
     save();
     render();
     lastView = null;
@@ -86,13 +116,14 @@
     c.append(head);
     if (!f.rows.length) c.append(el("p", "note", "O medidor não pegou dano nessa luta."));
     const ranked = f.rows.slice().sort((a, b) => b.dps - a.dps);
+    const nm = namesOf(ranked);
     ranked.forEach((r, i) => {
       const row = el("div", `fRow${r.me ? " me" : ""}`);
       row.style.setProperty("--c", COLORS[r.class] || "#8892a6");
       row.append(
         el("span", "fPos", `${i + 1}`),
         icon(r.class),
-        el("span", "fName", r.name),
+        el("span", "fName", nm(r.name, { me: r.me, cls: r.class })),
         el("span", "fTotal", short(r.total)),
         el("span", "fDps", `${short(r.dps)}/s`),
         el("span", "fDead", r.deaths ? `☠ ${r.deaths}` : ""),
@@ -102,7 +133,7 @@
     if (f.deaths && f.deaths.length) {
       const d = el("div", "fDeaths");
       d.append(el("b", "", `☠ Mortes (${f.deaths.length})`));
-      for (const x of f.deaths) d.append(el("div", "fDeath", deathText(x)));
+      for (const x of f.deaths) d.append(el("div", "fDeath", deathText(x, nm)));
       c.append(d);
     }
     if (f.mechs.length) {
@@ -163,6 +194,7 @@
     let y = PAD + 52;
     const top = Math.max(1, ...f.rows.map((r) => r.dps));
     const ranked = f.rows.slice().sort((a, b) => b.dps - a.dps);
+    const nm = namesOf(ranked, "game");
     ranked.forEach((r, i) => {
       const c = COLORS[r.class] || "#8892a6";
       g.fillStyle = "#171b22";
@@ -173,7 +205,7 @@
       g.fillRect(PAD, y + 2, 3, RH - 4);
       g.font = `${r.me ? 700 : 600} 14px Segoe UI, sans-serif`;
       g.fillStyle = "#fff";
-      g.fillText(`${i + 1}. ${r.name}` + (r.deaths ? `  ☠${r.deaths}` : ""), PAD + 12, y + RH / 2);
+      g.fillText(`${i + 1}. ${nm(r.name, { me: r.me, cls: r.class })}` + (r.deaths ? `  ☠${r.deaths}` : ""), PAD + 12, y + RH / 2);
       g.textAlign = "right";
       g.fillStyle = "#fff";
       g.font = "700 14px Segoe UI, sans-serif";
@@ -192,7 +224,7 @@
       y += 20;
       g.font = "12px Segoe UI, sans-serif";
       g.fillStyle = "#e3c9c6";
-      f.deaths.slice(0, deathLines).forEach((x, i) => g.fillText(deathText(x), PAD + 6, y + i * 19 + 8, W - PAD * 2 - 6));
+      f.deaths.slice(0, deathLines).forEach((x, i) => g.fillText(deathText(x, nm), PAD + 6, y + i * 19 + 8, W - PAD * 2 - 6));
       y += deathLines * 19;
     }
     if (mechLines) {
@@ -223,6 +255,43 @@
     }
   }
 
+  {
+    const wipes = document.querySelector(".fWipes"), keepSel = document.querySelector(".fKeep"), clear = document.querySelector(".fClear");
+    if (wipes) {
+      wipes.checked = keepWipes;
+      wipes.addEventListener("change", () => setOpt("fightsWipes", (keepWipes = wipes.checked)));
+    }
+    if (keepSel) {
+      keepSel.value = String(keepN);
+      if (keepSel.value !== String(keepN)) keepSel.value = "15";
+      keepSel.addEventListener("change", () => {
+        keepN = Number(keepSel.value) || 15;
+        setOpt("fightsKeep", keepN);
+        fights = fights.slice(0, keepN);
+        save();
+        render();
+      });
+    }
+    // Two clicks to clear: a slip of the mouse does not lose the cards.
+    if (clear) {
+      const LABEL = clear.textContent;
+      let armed = 0;
+      clear.addEventListener("click", () => {
+        if (!armed) {
+          clear.textContent = "Clique de novo para apagar";
+          armed = setTimeout(() => ((armed = 0), (clear.textContent = LABEL)), 4000);
+          return;
+        }
+        clearTimeout(armed);
+        armed = 0;
+        clear.textContent = LABEL;
+        fights = [];
+        save();
+        render();
+      });
+    }
+  }
   render();
+  window.LudraNames?.onChange(render);
   window.__fightsTest = { end, draw, fights: () => fights, setView: (v) => (lastView = v) };
 })();

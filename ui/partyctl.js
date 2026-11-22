@@ -31,8 +31,36 @@
   if (scaleIn) scaleIn.value = String(scale);
   if (alphaIn) alphaIn.value = String(alpha);
   let game = false, testing = false;
+  // The box's background ("Fundo"), and "O que mostrar": the debuffs, the
+  // aggro mark, and how many with the same debuff make the cleanse call.
+  const opIn = $(".partyOpacity");
+  let opacity = get("partyOpacity", 80);
+  if (opIn) opIn.value = String(opacity);
+  opIn && opIn.addEventListener("input", () => {
+    opacity = Number(opIn.value);
+    set("partyOpacity", opacity);
+    look();
+  });
+  const show = { debuffs: get("partyDebuffs", true), aggro: get("partyAggro", true) };
+  for (const [k, key] of [["debuffs", "partyDebuffs"], ["aggro", "partyAggro"]]) {
+    const e = $(`.${key}`);
+    if (!e) continue;
+    e.checked = !!show[k];
+    e.addEventListener("change", () => {
+      show[k] = e.checked;
+      set(key, show[k]);
+      look();
+    });
+  }
+  const minSel = $(".cleanseMin");
+  let cleanseMin = get("cleanseMin", "3");
+  if (minSel) minSel.value = String(cleanseMin);
+  minSel && minSel.addEventListener("change", () => {
+    cleanseMin = minSel.value;
+    set("cleanseMin", cleanseMin);
+  });
 
-  const look = () => T && T.event.emitTo("party", "party-look", { scale: scale / 100, alpha: alpha / 100 });
+  const look = () => T && T.event.emitTo("party", "party-look", { scale: scale / 100, alpha: alpha / 100, opacity: opacity / 100, show: { ...show } });
   // Room for 8 members with debuffs: 260 wide, about 40 a row.
   const size = () => ({ width: Math.ceil(270 * scale / 100), height: Math.ceil(360 * scale / 100) });
   function place() {
@@ -78,14 +106,14 @@
   };
   function checkCleanse(v, now = Date.now()) {
     if (!cleanse || !healer(v) || !P.inFight(v)) return;
-    for (const c of P.cleanseCalls(v.frames, now, last)) window.ludraCall?.(c);
+    for (const c of P.cleanseCalls(v.frames, now, last, 8000, Number(cleanseMin) || 3)) window.ludraCall?.(c);
   }
   T && T.event.listen("meter", (e) => checkCleanse(e.payload || {}));
 
   // "Testar": a made-up party on screen for a few seconds, and the call.
   const test = $(".test");
   test && test.addEventListener("click", () => {
-    const fake = { time_ms: 169000, target_boss: true, me: { name: "Dark", class: "cleric" }, boss: { aggro: "Tankão" }, frames: P.DEMO_FRAMES };
+    const fake = { demo: true, time_ms: 169000, target_boss: true, me: { name: "Dark", class: "cleric" }, boss: { aggro: "Tankão" }, frames: P.DEMO_FRAMES };
     if (on && T) {
       testing = true;
       place();

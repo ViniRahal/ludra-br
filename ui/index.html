@@ -21,6 +21,7 @@
         <div class="navHead">Registros</div>
         <button type="button" class="tab" data-tab="log"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Registro de mecânicas</span></button>
         <div class="navHead">Ajustes</div>
+        <button type="button" class="tab" data-tab="atalhos"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg><span>Atalhos</span></button>
         <button type="button" class="tab" data-tab="look"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/></svg><span>Aparência e voz</span></button>
       </nav>
       <div class="ver"></div>
@@ -49,7 +50,7 @@
         <div class="liveStats"></div>
       </div>
       <div class="card">
-        <div class="cardHead">Atalhos</div>
+        <div class="cardHead">Avisos</div>
         <label class="switch"><span>Avisos ligados</span><input type="checkbox" class="enabled" /></label>
         <label class="switch"><span>Voz dos avisos</span><input type="checkbox" class="speakTop" /></label>
         <div class="inline">
@@ -61,10 +62,32 @@
         <div class="cardHead">Gravar a luta</div>
         <div class="inline">
           <button type="button" class="btn primary recBtn">Gravar agora</button>
-          <button type="button" class="btn recFolder">Abrir pasta dos vídeos</button>
+          <button type="button" class="btn recFolder">Abrir pasta</button>
         </div>
-        <label class="switch"><span>Gravar sozinho cada pull do Ludra</span><input type="checkbox" class="recAuto" /></label>
-        <p class="note recNote">Usa o gravador do próprio Windows (Xbox Game Bar, o mesmo do Win+Alt+R). O vídeo e o registro da luta ficam juntos em Vídeos\Captures.</p>
+        <label class="switch"><span>Gravar sozinho cada pull</span><input type="checkbox" class="recAuto" /></label>
+        <label class="switch" hidden><span>Quais bosses</span><select class="recBosses"><option value="ludra">Só o Ludra</option><option value="trio">Rahu, Ketu e Ludra</option><option value="all">Todos os bosses (Reator também)</option></select></label>
+        <label class="row" hidden><span>Continuar gravando depois da luta</span><input type="range" class="recTail" min="3" max="30" step="1" data-unit=" s" /></label>
+        <label class="switch"><span>Salvar o registro da luta junto com o vídeo</span><input type="checkbox" class="recLog" /></label>
+        <label class="switch"><span>Uma pasta para cada dia</span><input type="checkbox" class="recDay" /></label>
+        <div class="note small">Onde salvar</div>
+        <div class="recDir"></div>
+        <div class="inline">
+          <button type="button" class="btn recPick">Mudar pasta</button>
+          <button type="button" class="btn recReset" hidden>Voltar ao padrão</button>
+        </div>
+        <p class="note recNote">Usa o gravador do Windows (Xbox Game Bar, Win+Alt+R). Se escolher outra pasta, o vídeo é levado para lá no fim da gravação e some da Galeria do Game Bar.</p>
+      </div>
+      <div class="card">
+        <div class="cardHead">Esconder nomes (para gravar ou fazer live)</div>
+        <label class="switch"><span>Esconder os nomes dos jogadores</span><input type="checkbox" class="namesOn" /></label>
+        <label class="switch"><span>Mostrar o meu nome</span><input type="checkbox" class="namesKeepMe" /></label>
+        <label class="switch"><span>Como mostrar</span><select class="namesStyle"><option value="player">Jogador 1, Jogador 2…</option><option value="class">Classe e número (Gladiador 1…)</option></select></label>
+        <label class="switch"><span>Onde esconder</span><select class="namesWhere"><option value="game">Só por cima do jogo</option><option value="all">Por cima do jogo e nesta janela</option></select></label>
+        <label class="switch"><span>Botão rápido embaixo do medidor</span><input type="checkbox" class="namesButton" /></label>
+        <label class="switch"><span>Avisar na tela quando mudar</span><input type="checkbox" class="namesAnnounce" /></label>
+        <p class="note namesPreview"></p>
+        <p class="note">Vale para tudo que aparece por cima do jogo. Cada jogador fica com o mesmo número a luta toda. As lutas salvas continuam com os nomes de verdade.</p>
+        <p class="note">O botão só funciona com as caixas destravadas (<b class="hk">Alt+E</b>). Também dá para esconder os nomes com uma tecla (aba Atalhos). As imagens copiadas também escondem os nomes. No histórico, o número segue a ordem de dano.</p>
       </div>
     </section>
 
@@ -87,9 +110,16 @@
         <div class="card">
           <div class="cardHead">Avisos de mecânica</div>
           <label class="switch"><span>Mostrar na tela</span><input type="checkbox" class="widget" /></label>
-          <label class="switch"><span>Mostrar o que te matou</span><input type="checkbox" class="showRecap" /></label>
-          <label class="row"><span>Tamanho</span><input type="range" class="size" min="24" max="100" step="4" /></label>
+          <label class="row"><span>Tamanho</span><input type="range" class="size" min="24" max="100" step="4" data-unit="" /></label>
           <label class="row"><span>Fundo</span><input type="range" class="bgOpacity" min="0" max="100" step="5" /></label>
+          <details class="more">
+            <summary>O que mostrar</summary>
+            <label class="switch"><span>O que te matou (quando você morre)</span><input type="checkbox" class="showRecap" /></label>
+            <label class="switch"><span>Quem da party morreu</span><input type="checkbox" class="deathCalls" /></label>
+            <label class="switch"><span>Stagger (quase cheio e quebrou)</span><input type="checkbox" class="staggerCalls" /></label>
+            <label class="switch"><span>Tempo do aviso na tela</span><select class="callHold"><option value="short">Curto</option><option value="normal">Normal</option><option value="long">Longo</option></select></label>
+            <p class="note sub">Avisos com contagem ficam até o fim da contagem.</p>
+          </details>
           <p class="note">Cores e voz em "Aparência e voz".</p>
         </div>
         <div class="card">
@@ -98,6 +128,15 @@
           <label class="switch"><span>Visual</span><select class="bossTheme"><option value="moldura">B: Moldura do jogo</option><option value="natural">A: Natural (sem caixa)</option><option value="minimo">C: Mínimo</option><option value="caixa">D: Caixa escura</option></select></label>
           <label class="row"><span>Tamanho</span><input type="range" class="bossScale" min="60" max="180" step="10" /></label>
           <label class="row"><span>Opacidade</span><input type="range" class="bossAlpha" min="20" max="100" step="5" /></label>
+          <details class="more">
+            <summary>O que mostrar</summary>
+            <label class="switch"><span>Barra do stagger (azul)</span><input type="checkbox" class="bossStagger" /></label>
+            <label class="switch"><span>Barra do enrage (laranja)</span><input type="checkbox" class="bossRage" /></label>
+            <label class="switch"><span>Quem está com o aggro</span><input type="checkbox" class="bossAggro" /></label>
+            <label class="switch"><span>Próxima mecânica</span><input type="checkbox" class="bossNext" /></label>
+            <label class="switch"><span>"Mata em" (tempo pelo dano de agora)</span><input type="checkbox" class="bossKill" /></label>
+            <label class="switch"><span>Também nos outros bosses do jogo</span><input type="checkbox" class="bossOthers" /></label>
+          </details>
         </div>
         <div class="card">
           <div class="cardHead">Medidor de dano</div>
@@ -105,19 +144,53 @@
           <label class="row"><span>Tamanho</span><input type="range" class="meterScale" min="60" max="180" step="10" /></label>
           <label class="row"><span>Opacidade</span><input type="range" class="meterAlpha" min="20" max="100" step="5" /></label>
           <label class="row"><span>Fundo</span><input type="range" class="meterOpacity" min="30" max="100" step="5" /></label>
+          <details class="more">
+            <summary>O que mostrar</summary>
+            <label class="switch"><span>Quantos jogadores</span><select class="meterRows"><option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="12">Todos (até 12)</option></select></label>
+            <label class="switch"><span>Coluna dos últimos 10 s</span><input type="checkbox" class="meterNow" /></label>
+            <label class="switch"><span>CP ao lado do nome</span><input type="checkbox" class="meterCp" /></label>
+            <label class="switch"><span>Ping (ms)</span><input type="checkbox" class="meterPing" /></label>
+            <label class="switch"><span>Fora da luta</span><select class="meterIdle"><option value="fade">Mais claro</option><option value="show">Normal</option><option value="hide">Esconder</option></select></label>
+            <p class="note sub">"Esconder": o medidor some fora da luta e volta no pull. Com esta janela aberta ele aparece, para você arrastar.</p>
+          </details>
         </div>
         <div class="card">
           <div class="cardHead">Quadro da party</div>
           <label class="switch"><span>Quadro da party na tela (vida e debuffs)</span><input type="checkbox" class="partyOn" /></label>
-          <label class="switch"><span>Aviso de limpeza em grupo (Cleric/Chanter)</span><input type="checkbox" class="cleanseCall" /></label>
+          <label class="switch"><span>Aviso de limpeza em grupo (Clérigo e Chanter)</span><input type="checkbox" class="cleanseCall" /></label>
           <label class="row"><span>Tamanho</span><input type="range" class="partyScale" min="60" max="180" step="10" /></label>
           <label class="row"><span>Opacidade</span><input type="range" class="partyAlpha" min="20" max="100" step="5" /></label>
-          <p class="note">Mostra a vida de cada um da party, quem o boss está atacando (🎯) e os debuffs. Borda vermelha: dá para limpar. O aviso de limpeza aparece quando o mesmo debuff pega 3 ou mais.</p>
+          <label class="row"><span>Fundo</span><input type="range" class="partyOpacity" min="0" max="100" step="5" /></label>
+          <details class="more">
+            <summary>O que mostrar</summary>
+            <label class="switch"><span>Debuffs embaixo da vida</span><input type="checkbox" class="partyDebuffs" /></label>
+            <label class="switch"><span>Quem está com o aggro (🎯)</span><input type="checkbox" class="partyAggro" /></label>
+            <label class="switch"><span>Aviso de limpeza: o mesmo debuff em</span><select class="cleanseMin"><option value="2">2 ou mais</option><option value="3">3 ou mais</option><option value="4">4 ou mais</option><option value="5">5 ou mais</option></select></label>
+          </details>
+          <p class="note">Mostra a vida de cada um da party, quem o boss está atacando (🎯) e os debuffs. Borda vermelha: dá para limpar. O aviso de limpeza só aparece para Clérigo e Chanter.</p>
+        </div>
+        <div class="card">
+          <div class="cardHead">Barra de cast do boss</div>
+          <label class="switch"><span>Mostrar na tela</span><input type="checkbox" class="castOn" /></label>
+          <label class="switch"><span>Mostrar em quem ele mira</span><input type="checkbox" class="castTarget" /></label>
+          <label class="switch"><span>Mostrar a dica da mecânica</span><input type="checkbox" class="castSub" /></label>
+          <label class="switch"><span>Mostrar habilidades que o app não conhece</span><input type="checkbox" class="castUnknown" /></label>
+          <label class="switch"><span>Quantas ao mesmo tempo</span><select class="castMax"><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>
+          <label class="row"><span>Tamanho</span><input type="range" class="castScale" min="60" max="180" step="10" /></label>
+          <label class="row"><span>Opacidade</span><input type="range" class="castAlpha" min="20" max="100" step="5" /></label>
+          <div class="inline"><button type="button" class="btn castTest">Ver exemplo</button></div>
+          <p class="note">Mostra o nome da mecânica e o tempo até ela sair. Vermelho: é em você. Usa o mesmo visual do painel do boss. Por enquanto só nos bosses do Ludra.</p>
         </div>
         <div class="card">
           <div class="cardHead">Controles</div>
           <label class="switch" hidden><span>Travar no lugar</span><input type="checkbox" class="lock" /></label>
-          <p class="note">Aperte <b class="hk">Alt+E</b> no jogo para abrir esta janela: com ela aberta, as caixas aparecem para você arrastar. Aperte de novo para voltar ao jogo. Se o Questlog estiver aberto, ele usa o Alt+E; aí o Ludra BR usa Alt+Shift+E (aparece embaixo do medidor).</p>
+          <div class="inline">
+            <button type="button" class="btn placeReset">Voltar as caixas ao lugar inicial</button>
+            <button type="button" class="btn lookResetAll">Tamanhos e opacidade padrão</button>
+          </div>
+          <p class="note sub resetNote">Use se uma caixa sumiu da tela (troca de monitor ou de resolução).</p>
+          <p class="note">Aperte <b class="hk">Alt+E</b> no jogo para abrir esta janela: com ela aberta, as caixas aparecem para você arrastar. Aperte de novo para voltar ao jogo. Se outro programa já usar o Alt+E (o Questlog, por exemplo), o Ludra BR usa Alt+Shift+E (aparece embaixo do medidor). Para trocar a tecla: aba Atalhos.</p>
+          <div class="hkHidden" hidden><span class="note">As caixas estão escondidas pelo atalho.</span> <button type="button" class="btn hkShowAll">Mostrar de novo</button></div>
         </div>
       </div>
     </section>
@@ -131,15 +204,39 @@
     <section class="pane" data-pane="lutas" hidden>
       <h2>Resumo das lutas</h2>
       <p class="note">Cada boss do Ludra que morre (ou wipe) vira um resumo: o DPS de cada um, do maior para o menor, as mortes e as mecânicas na ordem em que vieram. "Copiar imagem" deixa pronto para colar no Discord.</p>
+      <details class="card hOpts">
+        <summary class="cardHead">Opções do resumo</summary>
+        <label class="switch"><span>Guardar também os wipes</span><input type="checkbox" class="fWipes" /></label>
+        <p class="note sub">Wipes com menos de 30 segundos (pull errado) nunca ficam.</p>
+        <label class="switch"><span>Quantos resumos guardar</span><select class="fKeep"><option value="5">5</option><option value="15">15 (padrão)</option><option value="30">30</option><option value="50">50</option></select></label>
+        <div class="inline"><button type="button" class="btn fClear">Apagar os resumos</button></div>
+        <p class="note sub">As lutas do Histórico não são apagadas.</p>
+      </details>
       <div class="fights"></div>
     </section>
 
     <section class="pane" data-pane="hist" hidden>
       <h2>Histórico</h2>
-      <p class="note">Cada luta contra um boss fica salva neste PC quando termina. Abra uma para ver o DPS de cada um ao longo da luta, com a vida do boss, e as suas habilidades. 🏆 marca os seus recordes.</p>
+      <p class="note">Cada luta contra um boss fica salva neste PC quando termina. Abra uma para ver o DPS de cada um ao longo da luta, a linha do tempo (aperte Play para rever a luta: vida do boss, mecânicas e mortes) e as suas habilidades. 🏆 marca os seus recordes.</p>
       <div class="hTop">
         <label class="row"><span>Boss</span><select class="hFilter"></select></label>
       </div>
+      <!-- Closed by default, above the list: reachable without scrolling past an open fight. -->
+      <details class="card hOpts">
+        <summary class="cardHead">Opções do histórico</summary>
+        <label class="switch"><span>Salvar a linha do tempo de cada luta (vida do boss, mecânicas, mortes)</span><input type="checkbox" class="hTimeline" /></label>
+        <label class="switch"><span>Quantas lutas guardar</span><select class="hKeep"><option value="50">50</option><option value="100">100</option><option value="200">200</option><option value="300">300 (padrão)</option><option value="500">500</option><option value="1000">1000</option></select></label>
+        <p class="note sub">Passando do número, as lutas mais antigas são apagadas quando a próxima luta for salva. As lutas dos recordes 🏆 ficam.</p>
+        <p class="note hTlShowHead">Na linha do tempo, mostrar:</p>
+        <div class="hkSub">
+          <label class="switch"><span>Mecânicas e Bingos</span><input type="checkbox" class="hShowMech" /></label>
+          <label class="switch"><span>Mortes</span><input type="checkbox" class="hShowDeaths" /></label>
+          <label class="switch"><span>Stagger quebrado</span><input type="checkbox" class="hShowStagger" /></label>
+          <label class="switch"><span>Quem voltou (revive)</span><input type="checkbox" class="hShowRevive" /></label>
+        </div>
+        <label class="switch"><span>Velocidade do play (padrão)</span><select class="hSpeed"><option value="1">1x (tempo real)</option><option value="2">2x</option><option value="5">5x</option><option value="10">10x</option><option value="20">20x</option></select></label>
+        <p class="note">A linha do tempo ocupa pouco espaço (a vida do boss uma vez por segundo).</p>
+      </details>
       <div class="hGrid">
         <div class="card hListCard"><div class="hList"></div></div>
         <div class="card hBests"></div>
@@ -183,8 +280,6 @@
       </div>
       <label class="switch"><span>Enviar sozinho depois de cada luta</span><input type="checkbox" class="autoSend" /></label>
       <p class="note sub">Vai para a Staff do Ludra LFG: só o boss, a mecânica, a hora e a % de vida. Nada pessoal.</p>
-      <div class="inline">
-      </div>
       <p class="note learnNote"></p>
       <textarea class="logText" readonly hidden></textarea>
       <table class="logTable">
@@ -193,13 +288,35 @@
       </table>
     </section>
 
+    <section class="pane" data-pane="atalhos" hidden>
+      <h2>Atalhos de teclado</h2>
+      <p class="note">Teclas que funcionam de qualquer lugar, até com o jogo na frente. Clique em "Mudar" e aperte a combinação que quiser (com Ctrl, Alt ou Shift).</p>
+      <div class="card">
+        <div class="cardHead">Suas teclas</div>
+        <label class="switch"><span>Atalhos ligados</span><input type="checkbox" class="hkOn" /></label>
+        <label class="switch"><span>Avisar na tela quando usar um atalho</span><input type="checkbox" class="hkAnnounce" /></label>
+        <div class="hkList"></div>
+        <!-- Shown by hotkeysctl.js right under the "Esconder / mostrar as caixas" row. -->
+        <div class="hkSub hkOverlaysSub">
+          <label class="switch"><span>Ao esconder as caixas, esconder</span><select class="hkOverlays"><option value="all">Tudo por cima do jogo</option><option value="keepCalls">Tudo, menos os avisos de mecânica</option><option value="meter">Só o medidor de dano</option></select></label>
+          <div class="hkHidden" hidden><span class="note">As caixas estão escondidas pelo atalho.</span> <button type="button" class="btn hkShowAll">Mostrar de novo</button></div>
+        </div>
+        <div class="inline"><button type="button" class="btn hkReset">Voltar ao padrão</button></div>
+        <p class="note hkNote"></p>
+        <p class="note">Evite teclas que o jogo usa. Uma tecla usada aqui deixa de chegar ao jogo e aos outros programas. Por isso, letras e números sozinhos não dá: junte com Alt ou Ctrl.</p>
+      </div>
+    </section>
+
     <section class="pane" data-pane="look" hidden>
       <h2>Aparência e voz</h2>
       <label class="row"><span>Cor do texto</span><input type="color" class="fg" /></label>
       <label class="row"><span>Fundo</span><input type="color" class="bg" /></label>
-      <label class="switch"><span>Mostrar a vida do boss na tela</span><input type="checkbox" class="showHp" /></label>
+      <div class="inline"><button type="button" class="btn lookReset">Cores padrão</button></div>
+      <label class="switch"><span>Mostrar a vida do boss no texto dos avisos</span><input type="checkbox" class="showHp" /></label>
+      <p class="note sub">Só quando o painel do boss está desligado.</p>
       <hr />
       <label class="switch"><span>Falar os avisos</span><input type="checkbox" class="speak" /></label>
+      <label class="switch"><span>Bip antes de cada aviso</span><input type="checkbox" class="beep" /></label>
       <label class="row"><span>Volume</span><input type="range" class="volume" min="0" max="100" step="5" /></label>
       <label class="row"><span>Voz</span><select class="voiceName"></select></label>
       <label class="row"><span>Velocidade</span>
@@ -220,6 +337,7 @@
     </main>
 
     <script src="a2.js"></script>
+    <script src="names.js"></script>
     <script src="data.js"></script>
     <script src="remote.js"></script>
     <script src="logic.js"></script>
@@ -230,6 +348,7 @@
     <script src="detail.js"></script>
     <script src="meterctl.js"></script>
     <script src="bossctl.js"></script>
+    <script src="castctl.js"></script>
     <script src="partyview.js"></script>
     <script src="partyctl.js"></script>
     <script src="chars.js"></script>
@@ -237,6 +356,10 @@
     <script src="presets.js"></script>
     <script src="summary.js"></script>
     <script src="history.js"></script>
+    <script src="reclogic.js"></script>
     <script src="record.js"></script>
+    <script src="namesctl.js"></script>
+    <script src="hotkeys.js"></script>
+    <script src="hotkeysctl.js"></script>
   </body>
 </html>

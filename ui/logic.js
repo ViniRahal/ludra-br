@@ -9,7 +9,9 @@
 //    MP) and sheets are dropped. Other players' HP comes the same way, so
 //    nothing under a boss's size (data.minBossHp) is kept, not even a moment.
 //  - boss-cast / boss-skill (09 38 / 02 38): caster, skill. Only the skill ids
-//    in data.js are looked at; everything else is dropped at once.
+//    in data.js are looked at; everything else is dropped at once. A 09 38
+//    also brings target, target_name, target_me, ms and skill_name (main.rs),
+//    for the boss cast bar.
 //  - boss-buff (2A 38): entity, abnormal. Same: only data.js's ids.
 //
 // A monster's HP is kept only for a few seconds (to know the boss's HP the
@@ -22,6 +24,11 @@
   const GONE_MS = 60_000; // no HP at all this long: the fight is over (a boss can sit still through a phase)
   const LOST_MS = 15_000; // no HP from the boss this long: gone (a reset that respawned it)
   const USE_AFTER_CAST_MS = 10_000; // a 02 38 this long after the same skill's 09 38: the same cast going off
+  // The boss cast bar (an idea from Aion-DPS-Meter's "Boss cast bar", MIT):
+  const BAR_DEFAULT_MS = 3_000; // a cast whose time neither data.js nor the packet gives
+  const BAR_MAX = 3; // casts shown at once (the newest)
+  const BAR_KEEP = 12; // live casts the engine holds, known and unknown together
+  const BAR_END_AFTER_MS = 500; // a 02 38 of the same skill this long after its 09 38: the cast went off, its bar ends
 
   function inRanges(id, ranges) {
     for (const [a, b] of ranges) if (id >= a && id <= b) return true;
@@ -43,6 +50,7 @@
       return null;
     }
     let boss = null; // { id, key, max, maxFromPeak, cur, pct, low, fired:Set, seen:{skill:n}, start }
+    let bars = []; // the boss cast bar: { id, caster, skill, title, sub, known, start, end, target, targetMe, targetNpc }
     let log = []; // { at, boss, what, pct }
 
     function setPrefs(p) {
@@ -304,15 +312,67 @@
       return entry;
     }
 
+    // ---- the boss cast bar ------------------------------------------------
+    // What the boss is casting now, each with its countdown. The time is
+    // data.js's `secs` when it has one, else the packet's own cast time, else a
+    // short default; the bar ends early when the skill goes off (its 02 38).
+    // Unknown skills come too (known: false): the page decides whether to show them.
+    function castBars(t = now()) {
+      return bars.filter((b) => b.end > t);
+    }
+    function emitBars() {
+      hooks.bars?.(castBars());
+    }
+    function barStart(d, at, c, skill) {
+      const t = now();
+      if (t - at > STALE_MS) return; // queued while the window was shut: long over
+      const ms = c && c.secs ? c.secs * 1000 : Number(d.ms) > 0 ? Number(d.ms) : BAR_DEFAULT_MS;
+      const caster = Number(d.caster);
+      const target = Number(d.target) || 0;
+      const bar = {
+        id: `${caster}:${skill}:${at}`,
+        caster,
+        skill,
+        title: c ? c.title.replace(/!+$/, "") : String(d.skill_name || "").trim() || `Habilidade ${skill}`,
+        sub: c ? c.sub : "",
+        known: !!c,
+        start: at,
+        end: at + ms,
+        target: target && target !== caster ? String(d.target_name || "").trim() : "",
+        targetMe: !!(target && target !== caster && d.target_me),
+        // A monster or NPC (a summon): "Esconder nomes" leaves it as it is.
+        targetNpc: !!(target && target !== caster && d.target_npc),
+      };
+      // The same skill cast again (the packet repeats): its bar starts over.
+      // Every live bar is kept (BAR_KEEP is only a safety cap): pickBars cuts
+      // to the player's 1 to 3 rows after it drops the unknown skills, so a
+      // burst of skills with no call can never push a real mechanic off.
+      bars = [bar, ...castBars(t).filter((b) => !(b.caster === caster && b.skill === skill))].slice(0, BAR_KEEP);
+      emitBars();
+    }
+    function barEnd(d, at) {
+      const skill = Number(d && d.skill), caster = Number(d && d.caster);
+      const before = bars.length;
+      bars = bars.filter((b) => !(b.skill === skill && b.caster === caster && at - b.start >= BAR_END_AFTER_MS));
+      if (bars.length !== before) emitBars();
+    }
+    function clearBars() {
+      if (!bars.length) return;
+      bars = [];
+      emitBars();
+    }
+
     // how: "cast" (09 38, a cast bar starts) or "use" (02 38, it goes off).
     function cast(d, at, how) {
       const skill = Number(d && d.skill);
       const key = bossOfSkill(skill);
       if (!key) return; // not one of ours: dropped
       const id = Number(d.caster);
+      if (how === "use") barEnd(d, at);
       if (identify(id, key, at) === false) return; // not the boss we are fighting
       if (!boss || boss.key !== key) return;
       const c = bosses[key].casts.find((x) => x.skill === skill);
+      if (how === "cast") barStart(d, at, c, skill);
       if (!c) {
         // A skill with no call yet: logged each time it comes (once for its
         // cast and its hit), so a raid's log shows which id is which mechanic
@@ -331,7 +391,7 @@
       const k = `cast:${skill}`;
       const last = boss.seen[`t:${skill}`] || 0;
       const bar = boss.seen[`w:${skill}`] || 0;
-      if (at - last < 4000 || (how === "use" && at <= bar)) return;
+      if (at - last < (c.gap || 4000) || (how === "use" && at <= bar)) return;
       boss.seen[`t:${skill}`] = at;
       if (how !== "use") boss.seen[`w:${skill}`] = at + Math.max(USE_AFTER_CAST_MS, (c.secs || 0) * 1000 + 4000);
       boss.seen[skill] = (boss.seen[skill] || 0) + 1;
@@ -343,9 +403,22 @@
           boss.fired.add(`pre:${t.id}`);
         }
       }
-      logIt({ skill, n: boss.seen[skill], title: c.title }, at);
+      // A mechanic in fixed steps (Zikel's four rays): which step this is,
+      // counted from the skill that starts it, or from a long pause.
+      for (const x of bosses[key].casts) if (x.resetBy === skill) boss.seen[`step:${x.skill}`] = 0;
+      let text = c.title, sub = c.sub;
+      if (c.steps && c.steps.length) {
+        const sk = `step:${skill}`, lastStep = boss.seen[`stepAt:${skill}`] || 0;
+        if (at - lastStep > 20000) boss.seen[sk] = 0;
+        const i = (boss.seen[sk] || 0) % c.steps.length;
+        boss.seen[sk] = i + 1;
+        boss.seen[`stepAt:${skill}`] = at;
+        text = `${c.title} ${i + 1}/${c.steps.length}`;
+        sub = c.steps[i];
+      }
+      logIt({ skill, n: boss.seen[skill], title: text }, at);
       if (prefs.castCalls && !prefs.off[`${key}:${k}`] && now() - at <= STALE_MS) {
-        hooks.call({ kind: "cast", text: c.title, sub: c.sub, say: `${c.title}. ${c.sub}`, end: c.secs ? at + c.secs * 1000 : 0 });
+        hooks.call({ kind: "cast", text, sub, say: `${text.replace(/ (\d)\/\d$/, " $1")}. ${sub}`, end: c.secs ? at + c.secs * 1000 : 0 });
       }
       emitState();
     }
@@ -534,9 +607,12 @@
       // No HP from the boss for a while (dead, reset, or we left): no boss.
       if (boss && now() - boss.hpAt > GONE_MS) {
         boss = null;
+        clearBars();
         emitState();
         return;
       }
+      // Bars run out on their own: told once they are all gone.
+      if (bars.length && !castBars().length) clearBars();
       const up = upcoming();
       if (up && up.sure && prefs.castCalls && Number(prefs.prewarn) > 0) {
         const k = `soon:${up.skill}:${up.at}`;
@@ -563,11 +639,49 @@
     function clear() {
       boss = null;
       npc.clear();
+      clearBars();
       emitState();
     }
 
-    return { hp, spawn, cast, buff, tick, setMe, follow, enrageSecs, setPrefs, getLog, setLog, learnThresholds, thresholds, clear, _boss: () => boss };
+    return { hp, spawn, cast, buff, tick, setMe, follow, enrageSecs, setPrefs, getLog, setLog, learnThresholds, thresholds, clear, castBars, _boss: () => boss };
   }
 
-  root.LudraEngine = { createEngine };
+  // The boss cast bar's rows the player wants: data.js's mechanics always, the
+  // skills with no call only when "show unknown skills" is on; at most `max`
+  // (1 to 3), the newest first as the engine keeps them.
+  function pickBars(bars, o = {}) {
+    const max = Math.max(1, Math.min(BAR_MAX, Number(o.max) || 2));
+    return (Array.isArray(bars) ? bars : []).filter((b) => b && (b.known || o.unknown)).slice(0, max);
+  }
+
+  // The calls on screen after a new one: a death card stays, the new call
+  // goes first and only 2 calls fit (1 beside a death card). A "low" call
+  // (a key's "GRAVANDO", "OVERLAYS DE VOLTA") never pushes a mechanic call
+  // off the screen: it waits at the end, and is left out when there is no
+  // room.
+  function stackCalls(shown, c, at, until) {
+    const dead = shown.filter((x) => x.kind === "dead" && x.until > at);
+    const rest = shown.filter((x) => x.kind !== "dead" && x.until > at && x.text !== c.text);
+    const room = dead.length ? 1 : 2;
+    const item = { kind: c.kind, text: c.text, sub: c.sub, end: c.end || 0, until, ...(c.low ? { low: true } : {}) };
+    if (c.low) {
+      const calls = rest.filter((x) => !x.low);
+      // Another key's notice is replaced; a mechanic call is not.
+      const list = calls.length < room ? [...calls, item] : calls;
+      return [...dead, ...list.slice(0, room)];
+    }
+    return [...dead, ...[item, ...rest].slice(0, room)];
+  }
+
+  // How long a call stays on the big text ("Tempo do aviso na tela"). A call
+  // with a countdown stays until it is over, plus a moment; the others for a
+  // few seconds, shorter for a heads-up ("pre"). hold: "short" | "normal" | "long".
+  const HOLD = { short: [3000, 5000], normal: [5000, 8000], long: [8000, 12000] };
+  function callUntil(c, at, hold) {
+    if (c.end) return Math.max(c.end, at) + 1500;
+    const [pre, other] = HOLD[hold] || HOLD.normal;
+    return at + (c.kind === "pre" ? pre : other);
+  }
+
+  root.LudraEngine = { createEngine, pickBars, stackCalls, callUntil };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -35,8 +35,19 @@
 .mRow.mParty::before { background: linear-gradient(90deg, color-mix(in srgb, var(--c) 32%, transparent), color-mix(in srgb, var(--c) 8%, transparent)); border-right: 0; border-left: 2px solid var(--c); }
 .mGs { text-align: right; color: rgba(233, 238, 246, 0.8); }
 .mCp { text-align: right; font-weight: 700; }
-.mFoot { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding: 4px 4px 0; border-top: 1px solid rgba(255, 255, 255, 0.07); font-size: 11.5px; color: rgba(233, 238, 246, 0.55); }
+.mFoot { display: flex; flex-wrap: wrap; row-gap: 3px; justify-content: space-between; align-items: center; margin-top: 6px; padding: 4px 4px 0; border-top: 1px solid rgba(255, 255, 255, 0.07); font-size: 11.5px; color: rgba(233, 238, 246, 0.55); }
 .mPing { font-variant-numeric: tabular-nums; }
+/* "Esconder nomes": the quick button in the footer (green-ish when the names are hidden). */
+.mNames { font: inherit; font-size: 11px; line-height: 1; padding: 2px 7px; margin: 0 6px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.05); color: rgba(233, 238, 246, 0.7); cursor: pointer; }
+.mNames:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.mNames.on { border-color: rgba(94, 224, 138, 0.55); background: rgba(94, 224, 138, 0.14); color: #b8f5cc; }
+.mFoot > * { white-space: nowrap; }
+.mPing { margin-left: auto; }
+/* The tag only says the names are hidden; the button can't be clicked while
+   locked (the click goes to the game), so it shows only unlocked. */
+.mNamesTag { font-size: 11px; margin: 0 6px; padding: 2px 7px; border-radius: 999px; background: rgba(94, 224, 138, 0.14); color: #b8f5cc; }
+body.locked .mNames { display: none; }
+body:not(.locked) .mNamesTag { display: none; }
 .mPing.good { color: #5ee08a; }
 .mPing.mid { color: #f0c24a; }
 .mPing.bad { color: #ff6a6a; }
@@ -45,3 +56,6 @@
 body:not(.locked) .meter:hover, body.hover:not(.locked) .meter { outline: 1px dashed rgba(255, 255, 255, 0.7); outline-offset: 2px; opacity: 1 !important; }
 body:not(.locked) .meter:hover .mFoot::before, body.hover:not(.locked) .meter .mFoot::before { content: "✥ arraste para mover"; margin-right: auto; color: rgba(255, 255, 255, 0.85); }
 body.locked .meter .mFoot::before { content: "🔒 "; }
+/* "Últimos 10 s" off (Medidor > O que mostrar): the row without that column. */
+.meter.noNow .mRow:not(.mParty) { grid-template-columns: 26px 1fr 52px 48px; }
+.meter.noNow .mNow { display: none; }

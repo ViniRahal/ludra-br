@@ -19,7 +19,7 @@
     } catch {}
   };
   let on = get("meterOn", true);
-  let opacity = get("meterOpacity", 86);
+  let opacity = get("meterOpacity", 85);
   let game = false;
   let view = null;
   sw.checked = on;
@@ -35,7 +35,24 @@
   let alpha = get("meterAlpha", 100);
   scaleIn.value = String(scale);
   alphaIn.value = String(alpha);
-  const look = () => T && T.event.emitTo("meter", "meter-look", { opacity: opacity / 100, scale: scale / 100, alpha: alpha / 100 });
+  // "O que mostrar" (each with its saved key and default): how many players,
+  // the 10 s column, the CP by the name, the ping, and what it does out of a fight.
+  const SHOW = { max: ["meterRows", "12", ".meterRows"], now: ["meterNow", true, ".meterNow"], cp: ["meterCp", true, ".meterCp"], ping: ["meterPing", true, ".meterPing"], idle: ["meterIdle", "fade", ".meterIdle"] };
+  const show = {};
+  for (const [k, [key, def, sel]] of Object.entries(SHOW)) {
+    show[k] = get(key, def);
+    const e = document.querySelector(sel);
+    if (!e) continue;
+    if (e.type === "checkbox") e.checked = !!show[k];
+    else e.value = String(show[k]);
+    e.addEventListener("change", () => {
+      show[k] = e.type === "checkbox" ? e.checked : e.value;
+      set(key, show[k]);
+      look();
+    });
+  }
+  const showOut = () => ({ max: Number(show.max) || 12, now: !!show.now, cp: !!show.cp, ping: !!show.ping, idle: show.idle });
+  const look = () => T && T.event.emitTo("meter", "meter-look", { opacity: opacity / 100, scale: scale / 100, alpha: alpha / 100, show: showOut() });
   scaleIn.addEventListener("input", () => {
     scale = Number(scaleIn.value);
     set("meterScale", scale);
@@ -65,7 +82,7 @@
   T && T.event.listen("meter", (e) => {
     view = e.payload;
     if (tab.__demo) return; // "Testar" is showing its made-up meter
-    renderMeter(tab, view, { empty: "Nenhuma luta ainda. Bata no boss e os números aparecem aqui." });
+    renderMeter(tab, view, { empty: "Nenhuma luta ainda. Bata no boss e os números aparecem aqui.", scope: "app" });
   });
   // "Detalhe do jogador": a click on a row opens its panel.
   const rowOf = (id) => ((view && view.rows) || []).concat((tab.__demo && tab.__demo.rows) || []).find((r) => r.id === id);
@@ -73,7 +90,7 @@
     const row = e.target.closest(".mRow[data-id]");
     if (!row) return;
     const id = Number(row.dataset.id);
-    window.meterDetail?.open(id, rowOf(id) || { id, name: row.querySelector(".n")?.textContent || `#${id}` });
+    window.meterDetail?.open(id, rowOf(id) || { id, name: `#${id}` }); // the row may show a hidden name: the data has the real one
   });
   // A click on a row of the meter over the game opens it here.
   T && T.event.listen("open-detail", (e) => {
@@ -82,7 +99,9 @@
     document.querySelector('.tab[data-tab="dano"]')?.click();
     window.meterDetail?.open(id, rowOf(id) || (e.payload && e.payload.row));
   });
-  renderMeter(tab, null, { empty: "Nenhuma luta ainda. Bata no boss e os números aparecem aqui." });
+  renderMeter(tab, null, { empty: "Nenhuma luta ainda. Bata no boss e os números aparecem aqui.", scope: "app" });
+  // "Esconder nomes" turned on or off: the table here again (the made-up one while it shows).
+  window.LudraNames?.onChange(() => renderMeter(tab, tab.__demo || view, { empty: "Nenhuma luta ainda. Bata no boss e os números aparecem aqui.", scope: "app" }));
   const DEMO_RECAP = {
     seq: "demo", id: 1, name: "Dark", class: "assassin", me: true, at_ms: 0, killer: "Ludra", skill: "Raio em linha", skill_id: 1803290,
     damage: 85000, window_ms: 2100, taken: 152000,
@@ -94,27 +113,28 @@
   };
   // "Testar" shows a made-up meter too.
   document.querySelector(".test").addEventListener("click", () => {
-    const fake = { target: "Ludra da Eternidade (teste)", target_id: 1, time_ms: 169000, dps: 165100, rows: [
+    // demo: numbered on its own by names.js (its players are made up).
+    const fake = { demo: true, target: "Ludra da Eternidade (teste)", target_id: 1, time_ms: 169000, dps: 165100, rows: [
       { id: 1, name: "Dark", class: "assassin", dps: 81100, now: 48500, total: 13.7e6, share: 49, deaths: 1, cp: 193600, me: true },
       { id: 2, name: "IndioBala", class: "chanter", dps: 40000, now: 77900, total: 6.8e6, share: 24, deaths: 0, cp: 196700, me: false },
       { id: 3, name: "JSHOW", class: "assassin", dps: 20600, now: 10800, total: 3.5e6, share: 12, deaths: 0, cp: 133800, me: false },
       { id: 4, name: "Millennium", class: "chanter", dps: 15500, now: 11600, total: 2.6e6, share: 9, deaths: 3, cp: 142300, me: false },
       { id: 5, name: "RickSanchez", class: "cleric", dps: 7900, now: 16400, total: 1.3e6, share: 5, deaths: 0, cp: 131800, me: false },
     ], recaps: [DEMO_RECAP] };
-    renderMeter(tab, fake);
+    renderMeter(tab, fake, { scope: "app" });
     tab.__demo = fake;
-    window.meterDetailDemo = true;
+    window.meterDetailDemo = fake;
     // The made-up meter stays a while here, so its players can be clicked.
     clearTimeout(tab.__demoEnd);
     tab.__demoEnd = setTimeout(() => {
       tab.__demo = null;
       window.meterDetailDemo = false;
-      renderMeter(tab, view, { empty: "Nenhuma luta ainda. Bata no boss e os números aparecem aqui." });
+      renderMeter(tab, view, { empty: "Nenhuma luta ainda. Bata no boss e os números aparecem aqui.", scope: "app" });
     }, 30000);
     // "O que te matou": the card you get when you die, a moment later.
     setTimeout(() => window.ludraNewRecap?.(DEMO_RECAP), 2500);
     if (on && T) {
-      T.core.invoke("overlay_show", { label: "meter", width: 400, height: 470 });
+      T.core.invoke("overlay_show", { label: "meter", width: Math.ceil(400 * scale / 100), height: Math.ceil(470 * scale / 100) }); // at the player's size
       T.event.emitTo("meter", "meter", fake);
       look();
       setTimeout(() => {

@@ -26,7 +26,21 @@
   let alpha = get("bossAlpha", 100);
   scaleIn.value = String(scale);
   alphaIn.value = String(alpha);
-  const look = () => T && T.event.emitTo("boss", "boss-look", { theme, scale: scale / 100, alpha: alpha / 100 });
+  // "O que mostrar": each part of the panel, on by default.
+  const SHOW = { stagger: "bossStagger", rage: "bossRage", aggro: "bossAggro", next: "bossNext", kill: "bossKill", others: "bossOthers" };
+  const show = {};
+  for (const [k, key] of Object.entries(SHOW)) {
+    show[k] = get(key, true);
+    const e = document.querySelector(`.${key}`);
+    if (!e) continue;
+    e.checked = !!show[k];
+    e.addEventListener("change", () => {
+      show[k] = e.checked;
+      set(key, show[k]);
+      look();
+    });
+  }
+  const look = () => T && T.event.emitTo("boss", "boss-look", { theme, scale: scale / 100, alpha: alpha / 100, show: { ...show } });
   scaleIn.addEventListener("input", () => {
     scale = Number(scaleIn.value);
     set("bossScale", scale);
@@ -64,7 +78,7 @@
     if (fake !== undefined) {
       testing = !!fake;
       place();
-      if (fake && T) T.event.emitTo("boss", "meter", { target: s && s.name, rows: [], boss: { id: 1, ...fake } });
+      if (fake && T) T.event.emitTo("boss", "meter", { demo: true, target: s && s.name, rows: [], boss: { id: 1, ...fake } });
     }
     push();
   };

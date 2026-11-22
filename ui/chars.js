@@ -49,11 +49,14 @@
     const h = new Date().getHours();
     const part = h < 5 ? "Boa noite" : h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
     const hello = document.querySelector(".hello");
-    if (hello) hello.textContent = current ? `${part}, ${current}` : part;
+    // "Esconder nomes" (names.js), with "Mostrar o meu nome" off and this window too.
+    const N = window.LudraNames;
+    const mine = (n) => (N ? N.name(n, { me: true }, "app") : n);
+    if (hello) hello.textContent = current ? `${part}, ${mine(current)}` : part;
     const who = document.querySelector(".whoPill");
     if (who) {
       const c = current && chars[current];
-      who.textContent = c ? `${c.name}${c.cp ? ` · CP ${short(c.cp)}` : ""}` : "Personagem: dê um TP";
+      who.textContent = c ? `${mine(c.name)}${c.cp ? ` · CP ${short(c.cp)}` : ""}` : "Personagem: dê um TP";
       who.classList.toggle("ok", !!c);
     }
   }
@@ -135,17 +138,18 @@
   T && T.app && T.app.getVersion().then((v) => { const e = document.querySelector(".ver"); if (e) e.textContent = `v${v}`; }).catch(() => {});
   render();
   greet();
+  window.LudraNames?.onChange(greet);
   setInterval(() => {
     greet();
     render();
   }, 60000);
 })();
-// Each slider shows its value, as a %.
+// Each slider shows its value, as a % unless it says its own unit (data-unit).
 for (const r of document.querySelectorAll('.row input[type="range"]')) {
   const v = document.createElement("span");
   v.className = "rangeVal";
   r.after(v);
-  const show = () => (v.textContent = `${r.value}%`);
+  const show = () => (v.textContent = `${r.value}${r.dataset.unit ?? "%"}`);
   r.addEventListener("input", show);
   setTimeout(show, 300);
 }
@@ -220,7 +224,12 @@ for (const r of document.querySelectorAll('.row input[type="range"]')) {
 (function () {
   const T = window.__TAURI__;
   if (!T) return;
-  const show = (k) => k && document.querySelectorAll(".hk").forEach((e) => (e.textContent = k));
+  // Empty: the player turned that key off (Atalhos de teclado).
+  const show = (k) => {
+    if (typeof k !== "string") return;
+    window.hotkeyLabel = k;
+    document.querySelectorAll(".hk").forEach((e) => (e.textContent = k || "(atalho desligado)"));
+  };
   T.core.invoke("hotkey_label").then(show).catch(() => {});
   T.event.listen("hotkey", (e) => show(e.payload));
 })();

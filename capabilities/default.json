@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "As janelas: opções, texto grande, medidor, painel do boss e quadro da party.",
-  "windows": ["main", "overlay", "meter", "boss", "party"],
+  "description": "As janelas: opções, texto grande, medidor, painel do boss, quadro da party e barra de cast do boss.",
+  "windows": ["main", "overlay", "meter", "boss", "party", "cast"],
   "permissions": ["core:default"]
 }

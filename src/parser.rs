@@ -4,7 +4,9 @@
 //! - `8D <entity> 02 01 00 <u32 hp> 00 00 00 00`: a monster's current HP
 //!   (standalone `00 8D` packets and the copies inside combat packets).
 //! - `41 36`: a monster spawning, with its max HP.
-//! - `09 38` / `02 38`: a skill's cast starting / going off.
+//! - `09 38` / `02 38`: a skill's cast starting / going off. The `09 38`
+//!   also says whom the skill is aimed at and how long the cast takes (read
+//!   when it can be, for the boss cast bar).
 //! - `2A 38`: a buff landing.
 //!
 //! The record layouts, the framing and the HP scan follow A2Tools DPS Meter
@@ -57,7 +59,9 @@ pub enum Event {
     Hp { entity: i64, kind: u8, count: u8, res: u8, hp: u64 },
     /// `code`: the monster's model code (the NPC id, e.g. Ludra 2300290).
     Spawn { entity: i64, max: u64, code: u32 },
-    Cast { caster: i64, skill: u32 },
+    /// `target`: whom it is aimed at (0: nobody, or not read); `ms`: how
+    /// long the cast bar runs (0: not read).
+    Cast { caster: i64, skill: u32, target: i64, ms: u32 },
     Use { caster: i64, skill: u32 },
     Buff { entity: i64, abnormal: u32 },
     /// A boss-sized monster's hit on someone (`04 38`): who it is attacking.
@@ -152,7 +156,10 @@ impl Processor {
                 if let Some((caster, skill)) = skill_record(body) {
                     if ours(skill) {
                         self.events.push(if packet[at] == 0x09 {
-                            Event::Cast { caster, skill }
+                            // The aim and the cast time, when the rest of the record reads
+                            // as one; the cast is kept without them when it does not.
+                            let (target, ms) = windup_record(body).map(|w| (w.target, w.ms)).unwrap_or((0, 0));
+                            Event::Cast { caster, skill, target: if target == caster { 0 } else { target }, ms }
                         } else {
                             Event::Use { caster, skill }
                         });
@@ -250,6 +257,51 @@ fn skill_record(body: &[u8]) -> Option<(i64, u32)> {
     let at = caster.length as usize + 1;
     let b = body.get(at..at + 4)?;
     Some((caster.value as i64, u32::from_le_bytes([b[0], b[1], b[2], b[3]])))
+}
+
+/// What a `09 38` says past the skill: whom it is aimed at and how long the
+/// cast takes.
+#[derive(Debug, PartialEq)]
+struct Windup {
+    target: i64,
+    ms: u32,
+}
+
+/// `09 38` in full: `<caster varint> <1 byte> <skill u32 LE> <1 byte>
+/// <aim flags u8> <target varint> <facing f32 LE> [x y z f32 LE, when aim
+/// flags & 2] <cast time ms varint> ...`. The layout is Aion-DPS-Meter's
+/// (MIT, Copyright (c) 2026 SkeeveTV, `Aion2FrameDecoder.DecodeWindup` /
+/// `TryReadAim`), checked there against recordings. Anything that does not
+/// fit (a target out of range, a facing that is no angle, a cast time out of
+/// 50 ms..2 min) gives None, and the cast bar falls back to its own times.
+fn windup_record(body: &[u8]) -> Option<Windup> {
+    let caster = read_varint(body, 0);
+    if caster.length <= 0 {
+        return None;
+    }
+    let mut at = caster.length as usize + 1 + 4; // the byte after the caster, the skill
+    let aim = *body.get(at + 1)?;
+    at += 2;
+    let target = read_varint(body, at);
+    if target.length <= 0 || !(0..=10_000_000).contains(&target.value) {
+        return None;
+    }
+    at += target.length as usize;
+    let f = body.get(at..at + 4)?;
+    let facing = f32::from_le_bytes([f[0], f[1], f[2], f[3]]);
+    if !facing.is_finite() || facing.abs() > 720.0 {
+        return None;
+    }
+    at += 4;
+    if aim & 2 != 0 {
+        body.get(at..at + 12)?;
+        at += 12;
+    }
+    let ms = read_varint(body, at);
+    if ms.length <= 0 || !(50..=120_000).contains(&ms.value) {
+        return None;
+    }
+    Some(Windup { target: target.value as i64, ms: ms.value as u32 })
 }
 
 /// `04 38`: `<target varint> <switch varint> <flag varint> <actor varint>
@@ -401,7 +453,48 @@ mod tests {
         s.extend(packet([0x02, 0x38], &other));
         s.extend(packet([0x02, 0x38], &body));
         p.consume_stream(&s);
-        assert_eq!(p.events, vec![Event::Cast { caster: 5000, skill: 1_803_040 }, Event::Use { caster: 5000, skill: 1_803_040 }]);
+        assert_eq!(p.events, vec![Event::Cast { caster: 5000, skill: 1_803_040, target: 0, ms: 0 }, Event::Use { caster: 5000, skill: 1_803_040 }]);
+    }
+
+    /// A `09 38` as Aion-DPS-Meter reads it: the skill, the aim, the facing,
+    /// the place (aim flags & 2) and the cast time.
+    fn windup_body(caster: u32, skill: u32, aim: u8, target: u32, ms: u32) -> Vec<u8> {
+        let mut b = varint(caster);
+        b.push(3);
+        b.extend_from_slice(&skill.to_le_bytes());
+        b.push(0);
+        b.push(aim);
+        b.extend(varint(target));
+        b.extend_from_slice(&90.0f32.to_le_bytes());
+        if aim & 2 != 0 {
+            for v in [100.0f32, 200.0, 5.0] {
+                b.extend_from_slice(&v.to_le_bytes());
+            }
+        }
+        b.extend(varint(ms));
+        b.extend_from_slice(&[0, 0, 0]);
+        b
+    }
+
+    #[test]
+    fn reads_a_casts_target_and_time() {
+        let mut p = Processor::new();
+        let mut s = packet([0x09, 0x38], &windup_body(5000, 1_803_370, 0, 4321, 2500));
+        s.extend(packet([0x09, 0x38], &windup_body(5000, 1_803_010, 2, 777, 15_000)));
+        // Aimed at itself: no target.
+        s.extend(packet([0x09, 0x38], &windup_body(5000, 1_803_290, 0, 5000, 1800)));
+        // A cast time out of range: the cast stays, without its time and aim.
+        s.extend(packet([0x09, 0x38], &windup_body(5000, 1_803_160, 0, 4321, 10)));
+        p.consume_stream(&s);
+        assert_eq!(
+            p.events,
+            vec![
+                Event::Cast { caster: 5000, skill: 1_803_370, target: 4321, ms: 2500 },
+                Event::Cast { caster: 5000, skill: 1_803_010, target: 777, ms: 15_000 },
+                Event::Cast { caster: 5000, skill: 1_803_290, target: 0, ms: 1800 },
+                Event::Cast { caster: 5000, skill: 1_803_160, target: 0, ms: 0 },
+            ]
+        );
     }
 
     #[test]

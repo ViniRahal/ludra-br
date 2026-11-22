@@ -95,3 +95,32 @@ body.locked .panel { cursor: default; }
 body:not(.locked) .panel:hover, body.hover:not(.locked) .panel { outline: 1px dashed rgba(255, 255, 255, 0.7); outline-offset: 2px; }
 body:not(.locked) .panel:hover::after, body.hover:not(.locked) .panel::after { content: "✥ arraste para mover"; position: absolute; top: -2px; right: 8px; font-size: 10px; color: rgba(255, 255, 255, 0.85); }
 .panel { position: relative; }
+
+/* ---- The boss cast bar (cast.html): one row per skill being cast ---------- */
+.casts { position: relative; display: flex; flex-direction: column; gap: 6px; width: 360px; box-sizing: border-box; padding: 7px 10px; border-radius: 8px; background: rgba(10, 12, 18, 0.55); color: #fff; font: 13px/1.25 "Segoe UI", system-ui, sans-serif; text-shadow: 0 1px 2px #000, 0 0 2px #000; cursor: grab; }
+body.locked .casts { cursor: default; }
+.casts.gone { visibility: hidden; }
+.casts.empty { align-items: center; outline: 2px dashed rgba(255, 255, 255, 0.5); }
+.cEmpty { padding: 8px 0; color: rgba(255, 255, 255, 0.85); }
+.cTop { display: flex; gap: 8px; align-items: baseline; }
+.cName { flex: 1; min-width: 0; font-weight: 800; font-size: 15px; letter-spacing: 0.02em; color: #ffd84d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cRow.unknown .cName { color: #f2f2f2; font-weight: 600; }
+.cAim { font-size: 12px; font-weight: 700; color: #9fd0ff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
+.cAim.me { color: #ff4b4b; font-size: 13px; font-weight: 800; }
+.cTime { min-width: 38px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cBar { height: 9px; margin-top: 3px; background: rgba(0, 0, 0, 0.6); border-radius: 2px; overflow: hidden; }
+.cFill { height: 100%; background: linear-gradient(180deg, #ffe08a, #f0a92a); transition: width 0.1s linear; }
+.cRow.me .cFill { background: linear-gradient(180deg, #ff8a7a, #d9303a); }
+.cRow.unknown .cFill { background: linear-gradient(180deg, #d8dde6, #8f98a8); }
+.cRow.soon .cTime { color: #ff6b62; }
+.cSub { margin-top: 2px; font-size: 11px; color: rgba(255, 255, 255, 0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* one line, so the window's room per row holds */
+.casts.t-natural { background: none; padding: 4px 6px; font-family: "Bahnschrift", "Segoe UI", system-ui, sans-serif; text-shadow: 0 0 3px #000, 0 0 3px #000, 0 1px 3px #000; }
+.casts.t-natural .cBar { height: 7px; border-radius: 0; background: rgba(0, 0, 0, 0.45); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55); }
+.casts.t-moldura { background: linear-gradient(180deg, rgba(28, 24, 18, 0.88), rgba(12, 11, 9, 0.88)); border: 1px solid rgba(214, 178, 106, 0.75); border-radius: 4px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.8), inset 0 0 12px rgba(214, 178, 106, 0.12); font-family: "Bahnschrift", "Segoe UI", system-ui, sans-serif; }
+.casts.t-moldura .cName { color: #f3d48a; }
+.casts.t-moldura .cBar { border-radius: 1px; background: #1a1210; box-shadow: inset 0 1px 2px #000, 0 0 0 1px rgba(214, 178, 106, 0.35); }
+.casts.t-minimo { width: 300px; background: none; padding: 2px 4px; gap: 4px; text-shadow: 0 0 3px #000, 0 0 3px #000; }
+.casts.t-minimo .cName { font-size: 13px; }
+.casts.t-minimo .cBar { height: 5px; border-radius: 3px; background: rgba(0, 0, 0, 0.5); }
+body:not(.locked) .casts:hover, body.hover:not(.locked) .casts { outline: 1px dashed rgba(255, 255, 255, 0.7); outline-offset: 2px; }
+body:not(.locked) .casts:hover::after, body.hover:not(.locked) .casts::after { content: "✥ arraste para mover"; position: absolute; top: -2px; right: 8px; font-size: 10px; color: rgba(255, 255, 255, 0.85); }

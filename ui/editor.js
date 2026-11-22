@@ -4,8 +4,8 @@
   const T = window.__TAURI__;
   const screen = document.querySelector(".screen");
   if (!screen) return;
-  const NAMES = { overlay: "Avisos de mecânica", boss: "Painel do boss", meter: "Medidor de dano", party: "Quadro da party" };
-  const COLORS = { overlay: "#ffd84d", boss: "#ff6b62", meter: "#4ea3f5", party: "#5fdc6a" };
+  const NAMES = { overlay: "Avisos de mecânica", boss: "Painel do boss", meter: "Medidor de dano", party: "Quadro da party", cast: "Barra de cast do boss" };
+  const COLORS = { overlay: "#ffd84d", boss: "#ff6b62", meter: "#4ea3f5", party: "#5fdc6a", cast: "#c08bff" };
   let layout = null, drag = null, els = {};
   const pane = () => document.querySelector('[data-pane="overlays"]');
   function draw() {
@@ -44,7 +44,7 @@
   let last = 0;
   // A corner pulled: the box grows or shrinks, as a picture does. Its size
   // is the same setting as the "Tamanho" slider below, which moves with it.
-  const SLIDER = { overlay: ".size", boss: ".bossScale", meter: ".meterScale", party: ".partyScale" };
+  const SLIDER = { overlay: ".size", boss: ".bossScale", meter: ".meterScale", party: ".partyScale", cast: ".castScale" };
   let size = null;
   function startSize(ev, label) {
     ev.preventDefault();
@@ -122,6 +122,40 @@
     drag.e.classList.remove("dragging");
     drag = null;
     setTimeout(load, 200);
+  });
+  // "Voltar as caixas ao lugar inicial": the program puts every box back
+  // where it starts on a first install (a box lost off-screen comes back).
+  const note = document.querySelector(".resetNote");
+  const NOTE = note ? note.textContent : "";
+  const say = (t) => {
+    if (!note) return;
+    note.textContent = t;
+    clearTimeout(say.t);
+    say.t = setTimeout(() => (note.textContent = NOTE), 6000);
+  };
+  document.querySelector(".placeReset")?.addEventListener("click", async () => {
+    if (!T) return;
+    try {
+      await T.core.invoke("overlay_reset_positions");
+      say("Pronto: as caixas voltaram ao lugar inicial.");
+    } catch {
+      say("Não deu para mover as caixas agora.");
+    }
+    setTimeout(load, 300);
+  });
+  // "Tamanhos e opacidade padrão": each slider of the boxes back to the value
+  // it comes with (the same defaults as in plugin.js and the *ctl.js files);
+  // the "input" event lets each box take it, as a drag of the slider would.
+  const LOOK_DEFAULTS = { ".size": 60, ".bgOpacity": 80, ".bossScale": 100, ".bossAlpha": 100, ".meterScale": 100, ".meterAlpha": 100, ".meterOpacity": 85, ".partyScale": 100, ".partyAlpha": 100, ".partyOpacity": 80, ".castScale": 100, ".castAlpha": 100 };
+  document.querySelector(".lookResetAll")?.addEventListener("click", () => {
+    for (const [sel, v] of Object.entries(LOOK_DEFAULTS)) {
+      const i = document.querySelector(sel);
+      if (!i || i.value === String(v)) continue;
+      i.value = String(v);
+      i.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    say("Pronto: tamanhos e opacidade como vieram.");
+    setTimeout(load, 400);
   });
   window.addEventListener("resize", draw);
   setInterval(load, 1000);

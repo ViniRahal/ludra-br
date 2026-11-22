@@ -50,27 +50,40 @@ window.LUDRA_BR = {
       // (the order of the skills is the same in every pull): which id is which
       // mechanic on screen. Most calls come from the cast, not the HP.
       hp: [
-        { id: "bingo1", pct: 50, title: "BINGO 1", sub: "Achem o quadrado azul. No atordoamento, BATAM TUDO.", learn: { skill: 1803010, nth: 1 } },
-        { id: "cores", pct: 33, title: "CORES", sub: "Vermelho de um lado, azul do outro. Longe da outra cor." },
-        { id: "bingo2", pct: 25, title: "BINGO 2", sub: "Igual ao Bingo 1, mas pulem as ondas antes. Healer: guarde a imunidade.", learn: { skill: 1803040, nth: 1 } },
-        { id: "circulos", pct: 10, title: "CÍRCULOS", sub: "Um por círculo da sua cor. Entre só no último segundo.", learn: { skill: 1803030, nth: 1 } },
+        { id: "bingo1", pct: 50, title: "BINGO 1", sub: "Cada um na sua marca. Peguem as 2 orbes e vão pro seguro. No stagger, BATAM TUDO.", learn: { skill: 1803010, nth: 1 } },
+        { id: "cores", pct: 33, title: "CORES", sub: "Vermelho na DIREITA, azul na ESQUERDA (olhando o boss). Veja sua cor antes e fique longe da outra." },
+        { id: "bingo2", pct: 25, title: "BINGO 2", sub: "Pulem a onda, no máximo 2 bingos e corram pra orb. No stagger, BATAM TUDO.", learn: { skill: 1803040, nth: 1 } },
+        { id: "circulos", pct: 10, title: "CÍRCULOS", sub: "Entre na cúpula da SUA cor só no último segundo.", learn: { skill: 1803030, nth: 1 } },
       ],
       casts: [
-        { skill: 1803150, title: "ANEL ROXO", sub: "Anel roxo abre em volta do boss. Fiquem colados nele." },
-        { skill: 1803350, title: "ANEL ROXO", sub: "Anel roxo abre em volta do boss. Fiquem colados nele." },
-        { skill: 1803200, title: "ORBES", sub: "Azul: todos pegam. Vermelho: só com bloqueio ou imunidade." },
-        { skill: 1803360, title: "ORBES", sub: "Azul: todos pegam. Vermelho: só com bloqueio ou imunidade." },
-        { skill: 1803185, title: "TORNADOS", sub: "Tornados roxos andando pela arena. Desviem." },
-        { skill: 1803240, title: "ARENA DIMINUI", sub: "Fiquem dentro do círculo. Fora da borda tira 7 mil por segundo." },
-        { skill: 1803160, title: "CRUZ", sub: "Cruz laranja no chão. Saiam das linhas antes de explodir." },
-        { skill: 1803380, title: "CRUZ", sub: "Cruz laranja no chão. Saiam das linhas antes de explodir." },
+        // Names as the Brazilian groups call them on voice (Vinicius, 22/11,
+        // narrating two kill videos), checked against the Inochi guide.
+        { skill: 1803150, title: "ONDA", sub: "Pulem a onda roxa." },
+        { skill: 1803350, title: "ONDA", sub: "Pulem a onda roxa." },
+        { skill: 1803200, title: "ORBES", sub: "Azul: todos pegam antes de cair. Vermelha: só o tank, com bloqueio." },
+        { skill: 1803360, title: "ORBES", sub: "Azul: todos pegam antes de cair. Vermelha: só o tank, com bloqueio." },
+        { skill: 1803185, title: "TORNADOS", sub: "Vão na diagonal do boss. Pode vir Bomberman junto." },
+        { skill: 1803240, title: "URUGUGU", sub: "Arena fecha. Todos atrás do boss; quem tem o olho fica perto e sai rápido. Peguem as 2 orbes." },
+        // Comes right with the tornados: the bombs that blow up in a cross.
+        { skill: 1803160, title: "BOMBERMAN", sub: "Bombas em cruz no chão. Saiam das linhas, fiquem na diagonal." },
+        { skill: 1803380, title: "BOMBERMAN", sub: "Bombas em cruz no chão. Saiam das linhas, fiquem na diagonal." },
         // Was taken for the bombs; the videos show the Bingo board coming with it.
-        { skill: 1803010, title: "BINGO", sub: "Achem o quadrado azul. No atordoamento, BATAM TUDO.", secs: 15 },
-        { skill: 1803040, title: "BINGO 2", sub: "Achem o quadrado azul, pulem as ondas. No atordoamento, BATAM TUDO. Healer: guarde a imunidade.", secs: 15 },
-        { skill: 1803390, title: "LASERS", sub: "Lasers varrendo o chão em sequência. Desviem na ordem." },
-        { skill: 1803370, title: "CONE", sub: "Cone laranja na frente do boss. Saiam da frente." },
+        { skill: 1803010, title: "BINGO", sub: "Cada um na sua marca. Peguem as 2 orbes e vão pro seguro. No stagger, BATAM TUDO.", secs: 15 },
+        { skill: 1803040, title: "BINGO 2", sub: "Pulem a onda, no máximo 2 bingos e corram pra orb. No stagger, BATAM TUDO.", secs: 15 },
+        // Zikel: the cut and the rays. The guides (Inochi, NoBS) give a fixed
+        // order: rays South, West, East, North; cuts middle, diagonal,
+        // straight, diagonal. 1803395 comes 4 times, ~4 s apart, after 1803390:
+        // each one is the next step (counted from the 1803390, or from a gap).
+        { skill: 1803390, title: "ZIKEL", sub: "Corte no chão e raios: Sul, Oeste, Leste, Norte. Não fiquem em cima do corte." },
+        { skill: 1803395, title: "ZIKEL", gap: 2500, resetBy: 1803390, steps: [
+          "Raio do SUL. Corte no meio: entre nele depois que passar.",
+          "Raio do OESTE. Corte na diagonal.",
+          "Raio do LESTE. Corte reto.",
+          "Raio do NORTE. Corte na diagonal.",
+        ], sub: "Passe entre os raios." },
+        { skill: 1803370, title: "CONE", sub: "Saiam da frente do boss." },
         { skill: 1803290, title: "RAIO EM LINHA", sub: "Raio reto saindo do boss. Saiam da linha." },
-        { skill: 1803030, title: "CÍRCULOS!", sub: "Entre no da sua cor no último segundo. Um por círculo.", secs: 5 },
+        { skill: 1803030, title: "CÍRCULOS!", sub: "Entre na cúpula da SUA cor só no último segundo.", secs: 5 },
       ],
       buffCalls: [
         { abnormal: 10000008, title: "LUDRA FORTALECIDO", sub: "Ele ganhou o poder da eternidade. Defesas prontas." },

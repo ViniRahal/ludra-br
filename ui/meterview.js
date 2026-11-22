@@ -32,17 +32,49 @@
     } else i.textContent = (NAMES[cls] || "?").slice(0, 1);
     return i;
   };
-  // The bottom line: your ping and the key that opens the settings.
-  function foot(box, v) {
+  // "Esconder nomes" (names.js): the name to draw; the data keeps the real one.
+  const N = () => window.LudraNames;
+  // v: the view the name comes from ("Testar" numbers its made-up players on its own).
+  const shown = (name, info, scope, v) => (N() ? N().name(name, info, scope, v) : name);
+  // The bottom line: your ping, the key that opens the settings and, once
+  // "Esconder nomes" was used, the quick button that flips it (for a live).
+  // Locked, a click goes to the game, so the button hides there (meter.css)
+  // and only a plain tag says the names are hidden.
+  function foot(box, v, opts) {
     const f = el("div", "mFoot");
-    f.append(el("span", "mKey", `${window.hotkeyLabel || "Alt+E"} opções`));
-    const p = v && v.ping;
-    const ping = el("span", `mPing${p == null ? "" : p < 80 ? " good" : p < 150 ? " mid" : " bad"}`, p == null ? "— ms" : `${p} ms`);
-    f.append(ping);
-    box.append(f);
+    // An empty label: the key was turned off (Atalhos de teclado).
+    if (window.hotkeyLabel !== "") f.append(el("span", "mKey", `${window.hotkeyLabel || "Alt+E"} opções`));
+    const np = N() && N().prefs;
+    if (np && np.on && N().active(opts.scope)) f.append(el("span", "mNamesTag", "🙈 nomes ocultos"));
+    if (np && N().showButton()) {
+      const hidden = N().active(opts.scope);
+      const b = el("button", `mNames${np.on ? " on" : ""}`, np.on ? "🙈 Mostrar nomes" : "Esconder nomes");
+      b.type = "button";
+      b.title = np.on ? "Os nomes estão escondidos. Clique para mostrar." : "Esconde os nomes dos jogadores (para gravar ou fazer live).";
+      if (np.on && !hidden) b.title += " Nesta janela eles continuam aparecendo (mude em Início > Esconder nomes).";
+      // Not a press on the meter: no drag, no double-click to the settings.
+      b.addEventListener("mousedown", (e) => e.stopPropagation());
+      b.addEventListener("mouseup", (e) => e.stopPropagation());
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        N().toggle();
+      });
+      f.append(b);
+    }
+    // "Mostrar o ping" off: the line keeps the key and the names button only
+    // (and goes when nothing is left in it).
+    if (opts.ping !== false) {
+      const p = v && v.ping;
+      const ping = el("span", `mPing${p == null ? "" : p < 80 ? " good" : p < 150 ? " mid" : " bad"}`, p == null ? "— ms" : `${p} ms`);
+      f.append(ping);
+    }
+    if ((f.children || []).length) box.append(f);
   }
+  // opts: { empty, scope, max (rows), cp, now, ping } — the last three are
+  // the meter's "O que mostrar" switches, on unless set to false.
   window.renderMeter = function (box, v, opts = {}) {
     box.replaceChildren();
+    box.classList?.toggle("noNow", opts.now === false);
     const rows = (v && v.rows) || [];
     const party = (v && v.party) || [];
     const me = v && v.me;
@@ -65,13 +97,13 @@
           row.style.setProperty("--c", COLORS[m.class] || "#8892a6");
           row.style.setProperty("--w", "100%");
           const name = el("span", "mName");
-          name.append(el("span", "n", m.name));
+          name.append(el("span", "n", shown(m.name, { me: m.me, cls: m.class }, opts.scope, v)));
           if (m.level) name.append(el("span", "cp", `Nv. ${m.level}`));
           row.append(icon(m.class), name, el("span", "mGs", m.gs ? m.gs.toLocaleString("pt-BR") : "—"), el("span", "mCp", m.cp ? short(m.cp) : "—"));
           box.append(row);
         }
       }
-      foot(box, v);
+      foot(box, v, opts);
       return;
     }
     top.append(el("span", "mBrand", "LUDRA BR"), el("span", "mTime", v && v.time_ms ? clock(v.time_ms) : "0:00"));
@@ -94,18 +126,28 @@
       widths.set(r.id, w);
       requestAnimationFrame(() => row.style.setProperty("--w", w));
       const name = el("span", "mName");
-      name.append(el("span", "n", r.name));
-      if (r.cp > 0) name.append(el("span", "cp", short(r.cp)));
+      const label = shown(r.name, { me: r.me, cls: r.class, id: r.id }, opts.scope, v);
+      name.append(el("span", "n", label));
+      if (r.cp > 0 && opts.cp !== false) name.append(el("span", "cp", short(r.cp)));
       if (r.deaths > 0) name.append(el("span", "dead", `☠${r.deaths}`));
       const now = el("span", `mNow${r.now > r.dps * 1.05 ? " up" : ""}`, short(r.now));
       row.append(icon(r.class), name, el("span", "mDps", short(r.dps)), now, el("span", "mSum", short(r.total)));
-      row.title = `${r.name}: ${Math.round(r.share)}% do dano do grupo. Clique para ver o detalhe.`;
+      row.title = `${label}: ${Math.round(r.share)}% do dano do grupo. Clique para ver o detalhe.`;
       box.append(row);
     }
     // Opened with the game already running, the names come with the next
     // area load: until then a player shows as "#id".
     if (rows.some((r) => r.name.startsWith("#"))) box.append(el("div", "mHint", "Dê um TP para o app ver os nomes"));
-    foot(box, v);
+    foot(box, v, opts);
   };
-  window.meterKit = { COLORS, NAMES, short, clock, icon, el };
+  // How see-through the meter over the game is. In a fight: the player's
+  // "Opacidade". Out of one ("Fora da luta"): "fade" at half of it (to see
+  // the game behind), "show" as in a fight, "hide" gone, except while the
+  // player is placing the boxes (or it could not be found to drag). 0: hidden.
+  const idleAlpha = (mode, fight, arranging, alpha = 1) => {
+    if (fight || mode === "show") return alpha;
+    if (mode === "hide" && !arranging) return 0;
+    return alpha * 0.5;
+  };
+  window.meterKit = { COLORS, NAMES, short, clock, icon, el, shown, idleAlpha };
 })();
