@@ -97,8 +97,9 @@ struct Area {
     height: f64,
 }
 
-/// The windows drawn over the game: the big text, the damage meter, the boss panel.
-const OVER_GAME: [&str; 3] = ["overlay", "meter", "boss"];
+/// The windows drawn over the game: the big text, the damage meter, the boss
+/// panel and the party's frames.
+const OVER_GAME: [&str; 4] = ["overlay", "meter", "boss", "party"];
 
 fn place_file(app: &tauri::AppHandle, label: &str) -> Option<std::path::PathBuf> {
     let name = if label == "overlay" { "posicao.json".to_string() } else { format!("posicao-{label}.json") };
@@ -124,7 +125,7 @@ fn overlay_layout(app: tauri::AppHandle, state: tauri::State<'_, Arc<App>>) -> s
         let Some(w) = app.get_webview_window(label) else { continue };
         let Ok(p) = w.outer_position() else { continue };
         let s = w.scale_factor().unwrap_or(1.0);
-        let fallback = match label { "overlay" => (420.0, 110.0), "boss" => (440.0, 130.0), _ => (390.0, 180.0) };
+        let fallback = match label { "overlay" => (420.0, 110.0), "boss" => (440.0, 130.0), "party" => (260.0, 300.0), _ => (390.0, 180.0) };
         let (mut x0, mut y0, mut x1, mut y1) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
         for a in areas.get(label).map(|v| v.as_slice()).unwrap_or(&[]) {
             if a.width <= 2.0 || a.height <= 2.0 {
@@ -236,7 +237,7 @@ fn status(state: tauri::State<'_, Arc<App>>) -> Status {
     state.status.lock().clone()
 }
 
-/// Shows a window over the game ("overlay" or "meter") at this size (CSS pixels).
+/// Shows a window over the game ("overlay", "meter", "boss" or "party") at this size (CSS pixels).
 #[tauri::command]
 fn overlay_show(app: tauri::AppHandle, width: f64, height: f64, label: Option<String>) {
     let Some(w) = over_game(&app, label.as_deref().unwrap_or("overlay")) else { return };

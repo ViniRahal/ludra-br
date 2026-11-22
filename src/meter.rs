@@ -127,6 +127,44 @@ pub struct Recap {
     pub hits: Vec<RecapHit>,
 }
 
+/// "Quadro da party": one debuff an enemy put on a party member, live now.
+#[derive(Debug, Clone, Serialize, PartialEq, Default)]
+pub struct Debuff {
+    /// The game's abnormal id.
+    pub id: u32,
+    /// The name of the skill that put it on, in Portuguese ("" if not known).
+    pub name: String,
+    /// Seconds left by the server's timer (none: no timer, or not known).
+    pub secs_left: Option<f64>,
+    /// How many of it are on (stacks, or the same debuff from several casts).
+    pub stacks: u32,
+    /// Put on by an enemy (always true here: only those are listed).
+    pub harmful: bool,
+    /// Whether a cleanse can take it off (none: the game data we have doesn't say).
+    pub cleansable: Option<bool>,
+}
+
+/// "Quadro da party": one member, in the game's party order (you first when
+/// there is no party).
+#[derive(Debug, Clone, Serialize, PartialEq, Default)]
+pub struct Frame {
+    pub name: String,
+    pub class: String,
+    pub me: bool,
+    /// Their entity in the game (0: not seen yet, so no HP or debuffs).
+    pub id: i32,
+    pub level: i32,
+    /// HP left, 0-100 (none: not known).
+    pub hp_pct: Option<f64>,
+    pub hp: i64,
+    /// The highest HP seen for them (their max once they were at full).
+    pub max_hp: i64,
+    pub dead: bool,
+    /// The boss is hitting them most (the boss panel's aggro).
+    pub aggro: bool,
+    pub debuffs: Vec<Debuff>,
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq, Default)]
 pub struct View {
     pub me: Option<Me>,
@@ -150,6 +188,8 @@ pub struct View {
     pub boss: Option<Boss>,
     /// Deaths of the last minutes, newest last.
     pub recaps: Vec<Recap>,
+    /// The party's frames: HP, death, aggro and enemies' debuffs.
+    pub frames: Vec<Frame>,
 }
 
 /// "Detalhe do jogador": one skill of a player's, this fight.
@@ -490,6 +530,80 @@ impl Meter {
         })
     }
 
+    /// The party's frames now: the game's party list (you alone without one),
+    /// each joined by name to their entity for its HP and enemies' debuffs.
+    fn frames(&self, now_ms: i64, party: &[Member], me_info: Option<&Me>, me: Option<i32>, aggro: Option<i32>) -> Vec<Frame> {
+        let mut ids: HashMap<String, i32> = HashMap::new();
+        for (id, n) in self.storage.get_nicknames() {
+            let n = n.trim();
+            if !n.is_empty() {
+                ids.insert(n.to_string(), id);
+            }
+        }
+        if let (Some(m), Some(id)) = (me_info, me) {
+            ids.insert(m.name.clone(), id);
+        }
+        let solo;
+        let members: &[Member] = if party.is_empty() {
+            solo = me_info.map(|m| vec![Member { name: m.name.clone(), class: m.class.clone(), level: m.level as i32, gs: m.gs, cp: m.cp, me: true }]).unwrap_or_default();
+            &solo
+        } else {
+            party
+        };
+        let wanted: HashSet<i32> = members.iter().filter_map(|m| ids.get(m.name.trim()).copied()).collect();
+        let debuffs = self.enemy_debuffs(now_ms, &wanted);
+        let storage = &self.storage;
+        frames_of(
+            members,
+            &ids,
+            me,
+            |id| (storage.get_mob_current_hp(id), storage.get_mob_hp(id)),
+            |id| storage.is_entity_dead(id),
+            aggro,
+            &debuffs,
+        )
+    }
+
+    /// What enemies have on these players now, by player: one entry per
+    /// debuff, the soonest to end first.
+    fn enemy_debuffs(&self, now_ms: i64, on: &HashSet<i32>) -> HashMap<i32, Vec<Debuff>> {
+        let mut out: HashMap<i32, Vec<Debuff>> = HashMap::new();
+        if on.is_empty() {
+            return out;
+        }
+        let summons = self.storage.get_summon_data();
+        let mut by: HashMap<(i32, u32), Debuff> = HashMap::new();
+        for i in self.storage.abnormal_instances(now_ms - 120_000, now_ms) {
+            if i.end_ms.is_some() || !on.contains(&i.entity) {
+                continue;
+            }
+            let caster = a2tools::entity::summon_resolver::resolve(i.caster, &summons);
+            if caster == i.entity || !self.storage.is_mob(caster) {
+                continue;
+            }
+            let secs_left = i.server_end_ms.map(|e| (e - now_ms) as f64 / 1000.0).filter(|s| (0.0..=3600.0).contains(s)).map(|s| (s * 10.0).round() / 10.0);
+            let e = by.entry((i.entity, i.abnormal)).or_insert_with(|| Debuff {
+                id: i.abnormal,
+                name: i.skill.map(|k| self.skills.lookup_skill_name(k as i32)).unwrap_or_default(),
+                secs_left,
+                stacks: 0,
+                harmful: true,
+                cleansable: None,
+            });
+            e.stacks += 1;
+            if let Some(s) = secs_left {
+                e.secs_left = Some(e.secs_left.map_or(s, |o: f64| o.max(s)));
+            }
+        }
+        for ((entity, _), d) in by {
+            out.entry(entity).or_default().push(d);
+        }
+        for list in out.values_mut() {
+            list.sort_by(|a, b| a.secs_left.unwrap_or(f64::MAX).partial_cmp(&b.secs_left.unwrap_or(f64::MAX)).unwrap_or(std::cmp::Ordering::Equal).then(a.id.cmp(&b.id)));
+        }
+        out
+    }
+
     /// The table now (call about once a second).
     pub fn view(&mut self, now_ms: i64) -> View {
         let d = self.calc.get_dps();
@@ -530,8 +644,9 @@ impl Meter {
         rows.sort_by(|a, b| b.total.partial_cmp(&a.total).unwrap_or(std::cmp::Ordering::Equal));
         // The boss: the meter's target, else the last big monster that hit someone.
         let boss_id = if d.target_id != 0 { d.target_id } else { self.hits.back().map(|h| h.1).unwrap_or(0) };
+        let aggro_id = if boss_id != 0 { self.aggro_of(boss_id, now_ms) } else { None };
         let boss = (boss_id != 0).then(|| {
-            let aggro = self.aggro_of(boss_id, now_ms);
+            let aggro = aggro_id;
             let (name, class) = match aggro {
                 Some(a) => match d.map.get(&a) {
                     Some(p) if !p.nickname.is_empty() => (p.nickname.clone(), class_of(&p.job).to_string()),
@@ -567,11 +682,13 @@ impl Meter {
             h.clamp(0, d.target_max_hp)
         });
         let party: Vec<Member> = party.into_iter().map(|(_, m)| m).collect();
+        let frames = self.frames(now_ms, &party, me_info.as_ref(), me, aggro_id);
         self.update_recaps(now_ms, &rows, &party, me);
         self.last_rows = rows.clone();
         self.last_time_ms = d.battle_time;
         View {
             recaps: self.recaps.iter().cloned().collect(),
+            frames,
             me: me_info,
             me_id: me.unwrap_or(0),
             party,
@@ -594,6 +711,46 @@ impl Default for Meter {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// The frames for these members: `ids` joins a name to its entity, `hp`
+/// gives an entity's (HP now, highest HP seen), `dead` whether it is down.
+fn frames_of(
+    members: &[Member],
+    ids: &HashMap<String, i32>,
+    me: Option<i32>,
+    hp: impl Fn(i32) -> (Option<i32>, Option<i32>),
+    dead: impl Fn(i32) -> bool,
+    aggro: Option<i32>,
+    debuffs: &HashMap<i32, Vec<Debuff>>,
+) -> Vec<Frame> {
+    members
+        .iter()
+        .map(|m| {
+            let id = ids.get(m.name.trim()).copied().unwrap_or(0);
+            let (cur, max) = if id != 0 { hp(id) } else { (None, None) };
+            let max_hp = max.unwrap_or(0).max(cur.unwrap_or(0)) as i64;
+            let hp_now = cur.map(|c| c.max(0) as i64);
+            let hp_pct = match hp_now {
+                Some(h) if max_hp > 0 => Some(((h as f64 / max_hp as f64) * 1000.0).round() / 10.0),
+                _ => None,
+            };
+            Frame {
+                name: m.name.clone(),
+                class: m.class.clone(),
+                me: m.me || (id != 0 && me == Some(id)),
+                id,
+                level: m.level,
+                hp_pct,
+                hp: hp_now.unwrap_or(0),
+                max_hp,
+                // A revive brings the HP back; the store's dead mark is only for when no HP came.
+                dead: id != 0 && (hp_now == Some(0) || (hp_now.is_none() && dead(id))),
+                aggro: id != 0 && aggro == Some(id),
+                debuffs: debuffs.get(&id).cloned().unwrap_or_default(),
+            }
+        })
+        .collect()
 }
 
 /// Keeps a hit a player took (at most a few thousand).
@@ -697,6 +854,30 @@ mod tests {
         assert!(d.skills.is_empty());
         // Someone the meter never saw.
         assert!(m.detail(12345).is_none());
+    }
+
+    #[test]
+    fn the_frames_join_the_party_to_its_hp_aggro_and_debuffs() {
+        let party = vec![
+            Member { name: "Mad".into(), class: "templar".into(), level: 45, gs: 3000, cp: 200_000, me: false },
+            Member { name: "Eu".into(), class: "cleric".into(), level: 45, gs: 2900, cp: 190_000, me: true },
+            Member { name: "Longe".into(), class: "ranger".into(), level: 45, gs: 2800, cp: 180_000, me: false },
+        ];
+        let ids: HashMap<String, i32> = [("Mad".to_string(), 10), ("Eu".to_string(), 20)].into_iter().collect();
+        let hp = |id: i32| match id {
+            10 => (Some(5_000), Some(20_000)),
+            20 => (Some(0), Some(18_000)),
+            _ => (None, None),
+        };
+        let mut debuffs = HashMap::new();
+        debuffs.insert(10, vec![Debuff { id: 777, name: "Veneno".into(), secs_left: Some(4.5), stacks: 2, harmful: true, cleansable: None }]);
+        let f = frames_of(&party, &ids, Some(20), hp, |_| false, Some(10), &debuffs);
+        assert_eq!(f.len(), 3);
+        assert_eq!((f[0].name.as_str(), f[0].id, f[0].hp_pct, f[0].aggro, f[0].dead), ("Mad", 10, Some(25.0), true, false));
+        assert_eq!(f[0].debuffs[0].stacks, 2);
+        assert!(f[1].me && f[1].dead && f[1].hp_pct == Some(0.0) && !f[1].aggro);
+        // Not seen yet: nothing made up.
+        assert_eq!((f[2].id, f[2].hp_pct, f[2].dead, f[2].debuffs.len()), (0, None, false, 0));
     }
 
     #[test]

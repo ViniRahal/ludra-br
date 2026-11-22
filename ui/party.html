@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Ludra BR - party</title>
+    <link rel="stylesheet" href="party.css" />
+  </head>
+  <body>
+    <div class="party"></div>
+    <script src="arrange.js"></script>
+    <script src="partyview.js"></script>
+    <script>
+      // The party frames over the game: each member's HP and debuffs, from the
+      // meter's view (its `frames`). Dragged while unlocked; a double-click
+      // opens the settings.
+      const box = document.querySelector(".party");
+      const T = window.__TAURI__;
+      let view = null, locked = false, demoUntil = 0;
+      function draw() {
+        const demo = Date.now() < demoUntil;
+        renderParty(box, view, { preview: !locked && arrange.on, always: demo });
+        const r = box.getBoundingClientRect();
+        T && T.core.invoke("overlay_areas", { areas: [{ x: r.left, y: r.top, width: Math.max(1, r.width), height: Math.max(1, r.height) }] });
+      }
+      setInterval(draw, 500);
+      arrange.listen(draw);
+      if (T) {
+        T.event.listen("meter", (e) => { if (Date.now() >= demoUntil) { view = e.payload; draw(); } });
+        T.event.listen("party-demo", (e) => { view = e.payload; demoUntil = Date.now() + 9000; draw(); });
+        T.event.listen("party-look", (e) => {
+          const p = e.payload || {};
+          box.style.setProperty("--o", String(p.opacity ?? 0.82));
+          box.style.transformOrigin = "0 0";
+          box.style.transform = p.scale && p.scale !== 1 ? `scale(${p.scale})` : "";
+          box.style.opacity = String(p.alpha ?? 1);
+          draw();
+        });
+        T.event.listen("locked", (e) => { locked = !!e.payload; document.body.classList.toggle("locked", locked); draw(); });
+        T.core.invoke("overlay_locked").then((v) => { locked = !!v; document.body.classList.toggle("locked", locked); draw(); });
+        T.event.emitTo("main", "party-hello", {});
+      }
+      let press = null, last = 0;
+      box.addEventListener("mousedown", (e) => {
+        if (e.button !== 0 || locked) return;
+        press = { x: e.screenX, y: e.screenY };
+      });
+      document.addEventListener("mousemove", (e) => {
+        if (!press || !(e.buttons & 1)) return void (press = null);
+        if (Math.abs(e.screenX - press.x) + Math.abs(e.screenY - press.y) >= 4) {
+          press = null;
+          last = 0;
+          T && T.core.invoke("overlay_drag");
+        }
+      });
+      document.addEventListener("mouseup", () => {
+        if (!press) return;
+        press = null;
+        const now = Date.now();
+        if (now - last <= 400) { last = 0; T && T.core.invoke("show_main"); } else last = now;
+      });
+      document.addEventListener("contextmenu", (e) => e.preventDefault());
+      draw();
+    </script>
+  </body>
+</html>

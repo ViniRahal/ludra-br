@@ -6,7 +6,7 @@
   const sel = document.querySelector(".presetSel");
   if (!sel) return;
   const nameIn = document.querySelector(".presetName");
-  const KEYS = [".widget", ".size", ".bgOpacity", ".bossOn", ".bossTheme", ".bossScale", ".bossAlpha", ".meterOn", ".meterScale", ".meterAlpha", ".meterOpacity"];
+  const KEYS = [".widget", ".size", ".bgOpacity", ".bossOn", ".bossTheme", ".bossScale", ".bossAlpha", ".meterOn", ".meterScale", ".meterAlpha", ".meterOpacity", ".partyOn", ".partyScale", ".partyAlpha"];
   const get = (k, d) => {
     try {
       const v = localStorage.getItem(`ludra:${k}`);

@@ -97,6 +97,14 @@
           <label class="row"><span>Fundo</span><input type="range" class="meterOpacity" min="30" max="100" step="5" /></label>
         </div>
         <div class="card">
+          <div class="cardHead">Quadro da party</div>
+          <label class="switch"><span>Quadro da party na tela (vida e debuffs)</span><input type="checkbox" class="partyOn" /></label>
+          <label class="switch"><span>Aviso de limpeza em grupo (Cleric/Chanter)</span><input type="checkbox" class="cleanseCall" /></label>
+          <label class="row"><span>Tamanho</span><input type="range" class="partyScale" min="60" max="180" step="10" /></label>
+          <label class="row"><span>Opacidade</span><input type="range" class="partyAlpha" min="20" max="100" step="5" /></label>
+          <p class="note">Mostra a vida de cada um da party, quem o boss está atacando (🎯) e os debuffs. Borda vermelha: dá para limpar. O aviso de limpeza aparece quando o mesmo debuff pega 3 ou mais.</p>
+        </div>
+        <div class="card">
           <div class="cardHead">Controles</div>
           <label class="switch" hidden><span>Travar no lugar</span><input type="checkbox" class="lock" /></label>
           <p class="note">Aperte <b class="hk">Alt+E</b> no jogo para abrir esta janela: com ela aberta, as caixas aparecem para você arrastar. Aperte de novo para voltar ao jogo. Se o Questlog estiver aberto, ele usa o Alt+E; aí o Ludra BR usa Alt+Shift+E (aparece embaixo do medidor).</p>
@@ -199,6 +207,8 @@
     <script src="detail.js"></script>
     <script src="meterctl.js"></script>
     <script src="bossctl.js"></script>
+    <script src="partyview.js"></script>
+    <script src="partyctl.js"></script>
     <script src="chars.js"></script>
     <script src="editor.js"></script>
     <script src="presets.js"></script>

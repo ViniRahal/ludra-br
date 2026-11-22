@@ -4,8 +4,8 @@
   const T = window.__TAURI__;
   const screen = document.querySelector(".screen");
   if (!screen) return;
-  const NAMES = { overlay: "Avisos de mecânica", boss: "Painel do boss", meter: "Medidor de dano" };
-  const COLORS = { overlay: "#ffd84d", boss: "#ff6b62", meter: "#4ea3f5" };
+  const NAMES = { overlay: "Avisos de mecânica", boss: "Painel do boss", meter: "Medidor de dano", party: "Quadro da party" };
+  const COLORS = { overlay: "#ffd84d", boss: "#ff6b62", meter: "#4ea3f5", party: "#5fdc6a" };
   let layout = null, drag = null, els = {};
   const pane = () => document.querySelector('[data-pane="overlays"]');
   function draw() {
@@ -44,7 +44,7 @@
   let last = 0;
   // A corner pulled: the box grows or shrinks, as a picture does. Its size
   // is the same setting as the "Tamanho" slider below, which moves with it.
-  const SLIDER = { overlay: ".size", boss: ".bossScale", meter: ".meterScale" };
+  const SLIDER = { overlay: ".size", boss: ".bossScale", meter: ".meterScale", party: ".partyScale" };
   let size = null;
   function startSize(ev, label) {
     ev.preventDefault();
