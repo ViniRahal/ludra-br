@@ -45,18 +45,12 @@
       if (drag && drag.label === b.label) continue;
       e.style.left = `${(b.x - m.x) * k}px`;
       e.style.top = `${(b.y - m.y) * k}px`;
-      const w = Math.max(26, b.w * k), h = Math.max(22, b.h * k);
+      // The name always goes inside the box: a box smaller than its name is
+      // drawn just big enough to hold it.
+      const tag = e.querySelector(".oTag");
+      const w = Math.max(b.w * k, tag.scrollWidth + 14), h = Math.max(b.h * k, 24);
       e.style.width = `${w}px`;
       e.style.height = `${h}px`;
-      // The name goes inside a box big enough for it, else just under it
-      // (above it, for a box low on the screen); a box at the right edge has
-      // its name lined up to the right, so it is not cut.
-      const top = (b.y - m.y) * k, left = (b.x - m.x) * k;
-      const tag = e.querySelector(".oTag");
-      const inside = h >= 30 && w >= tag.scrollWidth + 12;
-      e.classList.toggle("tagIn", inside);
-      e.classList.toggle("tagUp", !inside && top + h + 26 > screen.clientHeight);
-      e.classList.toggle("tagRight", !inside && left + tag.scrollWidth > screen.clientWidth);
       e.classList.toggle("off", !b.visible);
     }
     drawLegend();
