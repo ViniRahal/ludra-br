@@ -3,6 +3,7 @@
 pub mod capture;
 pub mod flows;
 pub mod framing;
+pub mod history;
 pub mod meter;
 pub mod parser;
 pub mod tcp_order;

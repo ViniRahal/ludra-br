@@ -193,7 +193,7 @@ pub struct View {
 }
 
 /// "Detalhe do jogador": one skill of a player's, this fight.
-#[derive(Debug, Clone, Serialize, PartialEq, Default)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, PartialEq, Default)]
 pub struct SkillRow {
     pub id: i32,
     pub name: String,
@@ -262,6 +262,9 @@ pub struct Meter {
     /// The last view's rows and fight time, for the detail.
     last_rows: Vec<Row>,
     last_time_ms: i64,
+    /// "Histórico das lutas": the boss fight being recorded, and the ones that ended.
+    recorder: crate::history::Recorder,
+    finished: Vec<crate::history::Fight>,
 }
 
 fn class_name(c: Option<a2tools::entity::job_class::JobClass>) -> String {
@@ -330,6 +333,8 @@ impl Meter {
             taken_sum,
             last_rows: Vec::new(),
             last_time_ms: 0,
+            recorder: crate::history::Recorder::default(),
+            finished: Vec::new(),
         }
     }
 
@@ -451,6 +456,11 @@ impl Meter {
             }
         }
         count.into_iter().max_by_key(|(_, (n, at))| (*n, *at)).map(|(t, _)| t)
+    }
+
+    /// "Histórico das lutas": the boss fights that ended since the last call.
+    pub fn take_finished(&mut self) -> Vec<crate::history::Fight> {
+        std::mem::take(&mut self.finished)
     }
 
     /// "Detalhe do jogador": `id`'s skills on the meter's target (A2Tools'
@@ -686,6 +696,28 @@ impl Meter {
         self.update_recaps(now_ms, &rows, &party, me);
         self.last_rows = rows.clone();
         self.last_time_ms = d.battle_time;
+        // "Histórico das lutas": this look at the fight.
+        let pct = target_hp.map(|h| ((h as f64 / d.target_max_hp as f64) * 1000.0).round() / 10.0);
+        let skills_me = if self.recorder.due(now_ms) { me.and_then(|id| self.detail(id)).map(|x| x.skills) } else { None };
+        let sample = crate::history::Sample {
+            now_ms,
+            target_id: d.target_id,
+            boss: d.target_is_boss,
+            name: d.target_name.clone(),
+            code: d.target_mob_code,
+            pct,
+            time_ms: d.battle_time,
+            me: if my_name.is_empty() { rows.iter().find(|r| r.me).map(|r| r.name.clone()).unwrap_or_default() } else { my_name.clone() },
+            // The anchored raid boss's HP while the target is a copy or an add.
+            anchor_pct: self.recorder.anchor().filter(|a| *a != d.target_id).and_then(|a| {
+                let cur = self.storage.get_mob_current_hp(a)? as f64;
+                let max = self.storage.get_mob_hp(a).or_else(|| self.storage.spawn_max_hp(a)).filter(|m| *m > 0)? as f64;
+                Some(((cur / max).clamp(0.0, 1.0) * 1000.0).round() / 10.0)
+            }),
+            players: rows.iter().map(|r| crate::history::FightPlayer { name: r.name.clone(), class: r.class.clone(), me: r.me, dps: r.dps, total: r.total, deaths: r.deaths, cp: r.cp }).collect(),
+        };
+        let ended = self.recorder.feed(&sample, skills_me);
+        self.finished.extend(ended);
         View {
             recaps: self.recaps.iter().cloned().collect(),
             frames,

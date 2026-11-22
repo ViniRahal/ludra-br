@@ -61,6 +61,33 @@ async fn meter_detail(state: tauri::State<'_, Arc<App>>, id: i32) -> Result<Opti
     tauri::async_runtime::spawn_blocking(move || rx.recv_timeout(Duration::from_millis(1500)).ok().flatten()).await.map_err(|e| e.to_string())
 }
 
+/// "Histórico das lutas": the folder the fights are kept in.
+fn history_store(app: &tauri::AppHandle) -> Option<ludra_core::history::Store> {
+    app.path().app_data_dir().ok().map(|d| ludra_core::history::Store::new(d.join("historico")))
+}
+
+/// The saved fights, newest first.
+#[tauri::command]
+fn history_list(app: tauri::AppHandle) -> Vec<ludra_core::history::FightSummary> {
+    history_store(&app).map(|s| s.list()).unwrap_or_default()
+}
+
+#[tauri::command]
+fn history_get(app: tauri::AppHandle, id: i64) -> Option<ludra_core::history::Fight> {
+    history_store(&app).and_then(|s| s.get(id))
+}
+
+#[tauri::command]
+fn history_delete(app: tauri::AppHandle, id: i64) -> Result<(), String> {
+    history_store(&app).ok_or("sem pasta")?.delete(id).map_err(|e| e.to_string())
+}
+
+/// Your best DPS per boss and character.
+#[tauri::command]
+fn history_bests(app: tauri::AppHandle) -> Vec<ludra_core::history::Best> {
+    history_store(&app).map(|s| s.bests()).unwrap_or_default()
+}
+
 #[tauri::command]
 fn hotkey_label(state: tauri::State<'_, Arc<App>>) -> String {
     state.hotkey.lock().clone()
@@ -595,6 +622,20 @@ fn start_capture(app: tauri::AppHandle, state: Arc<App>) {
                     last_view_at = now;
                     if let Some(meter) = flows.meter.as_mut() {
                         let view = meter.view(now);
+                        // A boss fight ended: saved, and a record beaten is told.
+                        for fight in meter.take_finished() {
+                            if let Some(store) = history_store(&app) {
+                                match store.save(&fight) {
+                                    Ok(best) => {
+                                        let _ = app.emit("history-saved", fight.id);
+                                        if let Some(b) = best {
+                                            let _ = app.emit("new-best", b);
+                                        }
+                                    }
+                                    Err(e) => eprintln!("historico: {e}"),
+                                }
+                            }
+                        }
                         if view != last_view {
                             let _ = app.emit("meter", &view);
                             last_view = view;
@@ -619,7 +660,7 @@ fn main() {
     let state = Arc::new(App { status: Mutex::new(Status { capture: "starting".into(), ..Default::default() }), locked: Mutex::new(false), areas: Mutex::new(HashMap::new()), focused: Mutex::new(HashSet::new()), hotkey: Mutex::new(String::new()), detail_tx: Mutex::new(None) });
     tauri::Builder::default()
         .manage(state.clone())
-        .invoke_handler(tauri::generate_handler![status, overlay_show, overlay_hide, overlay_lock, overlay_locked, overlay_drag, overlay_areas, show_main, open_npcap, arranging, update_now, update_download, update_restart, hotkey_label, overlay_layout, overlay_move, send_log, meter_detail])
+        .invoke_handler(tauri::generate_handler![status, overlay_show, overlay_hide, overlay_lock, overlay_locked, overlay_drag, overlay_areas, show_main, open_npcap, arranging, update_now, update_download, update_restart, hotkey_label, overlay_layout, overlay_move, send_log, meter_detail, history_list, history_get, history_delete, history_bests])
         .setup(move |app| {
             let handle = app.handle().clone();
             for label in OVER_GAME {
