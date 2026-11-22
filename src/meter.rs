@@ -152,6 +152,52 @@ pub struct View {
     pub recaps: Vec<Recap>,
 }
 
+/// "Detalhe do jogador": one skill of a player's, this fight.
+#[derive(Debug, Clone, Serialize, PartialEq, Default)]
+pub struct SkillRow {
+    pub id: i32,
+    pub name: String,
+    pub total: f64,
+    pub hits: i64,
+    pub crit_pct: f64,
+    /// Share of this player's damage, 0-100.
+    pub share: f64,
+    /// The biggest hit.
+    pub max: f64,
+    pub dps: f64,
+}
+
+/// Who hurt this player, and with what, this fight.
+#[derive(Debug, Clone, Serialize, PartialEq, Default)]
+pub struct TakenRow {
+    pub from: String,
+    pub skill: String,
+    pub total: f64,
+    pub hits: i64,
+}
+
+/// "Detalhe do jogador": what one player did and took in the meter's fight.
+#[derive(Debug, Clone, Serialize, PartialEq, Default)]
+pub struct Detail {
+    pub id: i32,
+    pub name: String,
+    pub class: String,
+    pub me: bool,
+    pub total: f64,
+    pub dps: f64,
+    pub time_ms: i64,
+    pub crit_pct: f64,
+    pub deaths: i32,
+    pub skills: Vec<SkillRow>,
+    pub taken: f64,
+    pub taken_by: Vec<TakenRow>,
+    pub heal_done: f64,
+    pub heal_received: f64,
+}
+
+/// Hits players took this fight: victim -> (attacker, skill) -> (damage, hits).
+type TakenSum = HashMap<i32, HashMap<(i32, i32), (i64, i64)>>;
+
 pub struct Meter {
     storage: Arc<DataStorage>,
     skills: Arc<SkillLookup>,
@@ -171,6 +217,11 @@ pub struct Meter {
     /// Deaths already turned into a recap: (victim, time).
     recapped: HashSet<(i32, i64)>,
     seq: u64,
+    /// "Detalhe do jogador": the hits players took since the meter's target changed.
+    taken_sum: Arc<Mutex<TakenSum>>,
+    /// The last view's rows and fight time, for the detail.
+    last_rows: Vec<Row>,
+    last_time_ms: i64,
 }
 
 fn class_name(c: Option<a2tools::entity::job_class::JobClass>) -> String {
@@ -209,14 +260,16 @@ impl Meter {
         let calc = DpsCalculator::new(storage.clone(), skills.clone(), npcs.clone(), ping.clone());
         let taken: Arc<Mutex<VecDeque<Taken>>> = Arc::new(Mutex::new(VecDeque::new()));
         let watched: Arc<RwLock<HashSet<i32>>> = Arc::new(RwLock::new(HashSet::new()));
+        let taken_sum: Arc<Mutex<TakenSum>> = Arc::new(Mutex::new(HashMap::new()));
         {
-            let (taken, watched) = (taken.clone(), watched.clone());
+            let (taken, watched, taken_sum) = (taken.clone(), watched.clone(), taken_sum.clone());
             // Runs under the store's lock: only copies the hit.
             storage.set_on_hit(move |p| {
                 if p.actor_id() == p.target_id() || !watched.read().contains(&p.target_id()) {
                     return;
                 }
                 record_taken(&taken, Taken { at: p.timestamp(), target: p.target_id(), actor: p.actor_id(), skill: p.skill_code(), damage: p.total_damage() as i64 });
+                add_taken(&taken_sum, p.target_id(), p.actor_id(), p.skill_code(), p.total_damage() as i64);
             });
         }
         Meter {
@@ -234,6 +287,9 @@ impl Meter {
             recaps: VecDeque::new(),
             recapped: HashSet::new(),
             seq: 0,
+            taken_sum,
+            last_rows: Vec::new(),
+            last_time_ms: 0,
         }
     }
 
@@ -357,11 +413,92 @@ impl Meter {
         count.into_iter().max_by_key(|(_, (n, at))| (*n, *at)).map(|(t, _)| t)
     }
 
+    /// "Detalhe do jogador": `id`'s skills on the meter's target (A2Tools'
+    /// own per-skill table, DoTs folded into their skill), and the damage they
+    /// took this fight. None: not a player of the table.
+    pub fn detail(&self, id: i32) -> Option<Detail> {
+        let row = self.last_rows.iter().find(|r| r.id == id).cloned();
+        let taken_by_raw: Vec<((i32, i32), (i64, i64))> = self.taken_sum.lock().get(&id).map(|m| m.iter().map(|(k, v)| (*k, *v)).collect()).unwrap_or_default();
+        if row.is_none() && taken_by_raw.is_empty() {
+            return None;
+        }
+        let time_ms = self.last_time_ms.max(0);
+        let secs = (time_ms as f64 / 1000.0).max(1.0);
+        let mut skills: Vec<SkillRow> = Vec::new();
+        let (mut heal_done, mut hits_all, mut crits_all) = (0.0, 0i64, 0i64);
+        if self.last_target != 0 {
+            let resp = self.calc.get_target_details(self.last_target, None);
+            // code -> (name, total, hits, crits, max)
+            let mut by: HashMap<i32, (String, f64, i64, i64, f64)> = HashMap::new();
+            for e in resp.skills.iter().filter(|e| e.actor_id == id) {
+                let name = e.name.trim_end_matches(" - DOT").to_string();
+                let s = by.entry(e.code).or_insert_with(|| (name.clone(), 0.0, 0, 0, 0.0));
+                if s.0.is_empty() {
+                    s.0 = name;
+                }
+                s.1 += e.dmg.max(0) as f64;
+                if !e.is_dot {
+                    s.2 += e.time as i64;
+                    s.3 += e.crit as i64;
+                }
+                s.4 = s.4.max(e.max_dmg.max(0) as f64);
+            }
+            heal_done = resp.heal_skills.iter().filter(|e| e.actor_id == id).map(|e| e.dmg.max(0) as f64).sum();
+            let sum: f64 = by.values().map(|s| s.1).sum();
+            for (code, (name, total, hits, crits, max)) in by {
+                hits_all += hits;
+                crits_all += crits;
+                skills.push(SkillRow {
+                    id: code,
+                    name: if name.is_empty() { format!("Habilidade {code}") } else { name },
+                    total,
+                    hits,
+                    crit_pct: if hits > 0 { crits as f64 / hits as f64 * 100.0 } else { 0.0 },
+                    share: if sum > 0.0 { total / sum * 100.0 } else { 0.0 },
+                    max,
+                    dps: total / secs,
+                });
+            }
+            skills.sort_by(|a, b| b.total.partial_cmp(&a.total).unwrap_or(std::cmp::Ordering::Equal));
+        }
+        let mut taken_by: Vec<TakenRow> = taken_by_raw
+            .iter()
+            .map(|((actor, skill), (dmg, hits))| TakenRow { from: self.who(*actor), skill: self.skills.lookup_skill_name(*skill), total: *dmg as f64, hits: *hits })
+            .collect();
+        let taken: f64 = taken_by.iter().map(|t| t.total).sum();
+        taken_by.sort_by(|a, b| b.total.partial_cmp(&a.total).unwrap_or(std::cmp::Ordering::Equal));
+        taken_by.truncate(10);
+        let (name, class, me, total, dps, deaths) = match &row {
+            Some(r) => (r.name.clone(), r.class.clone(), r.me, r.total, r.dps, r.deaths),
+            None => (self.storage.get_nickname(id).unwrap_or_default(), String::new(), self.storage.local_player_id() == Some(id as i64), 0.0, 0.0, 0),
+        };
+        Some(Detail {
+            id,
+            name,
+            class,
+            me,
+            total,
+            dps,
+            time_ms,
+            crit_pct: if hits_all > 0 { crits_all as f64 / hits_all as f64 * 100.0 } else { 0.0 },
+            deaths,
+            skills,
+            taken,
+            taken_by,
+            heal_done,
+            heal_received: 0.0,
+        })
+    }
+
     /// The table now (call about once a second).
     pub fn view(&mut self, now_ms: i64) -> View {
         let d = self.calc.get_dps();
         if d.target_id != self.last_target {
             self.history.clear();
+            // A new fight: its own "dano recebido" (not when the target is only lost).
+            if d.target_id != 0 {
+                self.taken_sum.lock().clear();
+            }
             self.last_target = d.target_id;
         }
         let me = d.local_player_id.map(|v| v as i32);
@@ -431,6 +568,8 @@ impl Meter {
         });
         let party: Vec<Member> = party.into_iter().map(|(_, m)| m).collect();
         self.update_recaps(now_ms, &rows, &party, me);
+        self.last_rows = rows.clone();
+        self.last_time_ms = d.battle_time;
         View {
             recaps: self.recaps.iter().cloned().collect(),
             me: me_info,
@@ -464,6 +603,14 @@ fn record_taken(taken: &Mutex<VecDeque<Taken>>, t: Taken) {
     while q.len() > 4096 {
         q.pop_front();
     }
+}
+
+/// Adds a hit a player took to this fight's sums.
+fn add_taken(sum: &Mutex<TakenSum>, target: i32, actor: i32, skill: i32, damage: i64) {
+    let mut m = sum.lock();
+    let e = m.entry(target).or_default().entry((actor, skill)).or_insert((0, 0));
+    e.0 += damage;
+    e.1 += 1;
 }
 
 pub struct Reader {
@@ -531,6 +678,25 @@ mod tests {
         m.update_recaps(now + 1_000, &[row], &[], Some(me));
         assert_eq!(m.recaps.len(), 1);
         assert!(m.watched.read().contains(&me));
+    }
+
+    #[test]
+    fn the_detail_sums_what_a_player_took() {
+        let mut m = Meter::new();
+        m.last_rows = vec![Row { id: 7, name: "Dark".into(), class: "assassin".into(), dps: 1000.0, now: 0.0, total: 60_000.0, share: 100.0, deaths: 1, cp: 0, me: true }];
+        m.last_time_ms = 60_000;
+        add_taken(&m.taken_sum, 7, 9000, 1803290, 40_000);
+        add_taken(&m.taken_sum, 7, 9000, 1803290, 45_000);
+        add_taken(&m.taken_sum, 7, 9000, 1803370, 10_000);
+        let d = m.detail(7).expect("detail");
+        assert_eq!((d.name.as_str(), d.me, d.deaths, d.time_ms), ("Dark", true, 1, 60_000));
+        assert_eq!(d.taken, 95_000.0);
+        assert_eq!(d.taken_by.len(), 2);
+        assert_eq!((d.taken_by[0].total, d.taken_by[0].hits), (85_000.0, 2));
+        // No target yet: no skills, but no crash.
+        assert!(d.skills.is_empty());
+        // Someone the meter never saw.
+        assert!(m.detail(12345).is_none());
     }
 
     #[test]

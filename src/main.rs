@@ -43,6 +43,22 @@ struct App {
     focused: Mutex<HashSet<String>>,
     /// The key that opens this window ("Alt+E", or another if that one is taken).
     hotkey: Mutex<String>,
+    /// "Detalhe do jogador": asks the reading thread, which owns the meter.
+    detail_tx: Mutex<Option<std::sync::mpsc::Sender<DetailAsk>>>,
+}
+
+/// A player's id, and where to send their detail.
+type DetailAsk = (i32, std::sync::mpsc::SyncSender<Option<ludra_core::meter::Detail>>);
+
+/// "Detalhe do jogador": one player's skills and the damage they took, this fight.
+#[tauri::command]
+async fn meter_detail(state: tauri::State<'_, Arc<App>>, id: i32) -> Result<Option<ludra_core::meter::Detail>, String> {
+    let Some(tx) = state.detail_tx.lock().clone() else { return Ok(None) };
+    let (back, rx) = sync_channel(1);
+    if tx.send((id, back)).is_err() {
+        return Ok(None);
+    }
+    tauri::async_runtime::spawn_blocking(move || rx.recv_timeout(Duration::from_millis(1500)).ok().flatten()).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -518,6 +534,8 @@ fn start_capture(app: tauri::AppHandle, state: Arc<App>) {
         }
     }
     let _ = app.emit("status", state.status.lock().clone());
+    let (detail_tx, detail_rx) = std::sync::mpsc::channel::<DetailAsk>();
+    *state.detail_tx.lock() = Some(detail_tx);
     std::thread::Builder::new()
         .name("leitura".into())
         .spawn(move || {
@@ -561,6 +579,9 @@ fn start_capture(app: tauri::AppHandle, state: Arc<App>) {
                         let _ = app.emit("pkt", batch);
                     }
                 }
+                while let Ok((id, back)) = detail_rx.try_recv() {
+                    let _ = back.try_send(flows.meter.as_ref().and_then(|m| m.detail(id)));
+                }
                 let now = capture::now_ms();
                 if now - last_tick >= 1000 {
                     last_tick = now;
@@ -594,10 +615,10 @@ fn start_capture(app: tauri::AppHandle, state: Arc<App>) {
 }
 
 fn main() {
-    let state = Arc::new(App { status: Mutex::new(Status { capture: "starting".into(), ..Default::default() }), locked: Mutex::new(false), areas: Mutex::new(HashMap::new()), focused: Mutex::new(HashSet::new()), hotkey: Mutex::new(String::new()) });
+    let state = Arc::new(App { status: Mutex::new(Status { capture: "starting".into(), ..Default::default() }), locked: Mutex::new(false), areas: Mutex::new(HashMap::new()), focused: Mutex::new(HashSet::new()), hotkey: Mutex::new(String::new()), detail_tx: Mutex::new(None) });
     tauri::Builder::default()
         .manage(state.clone())
-        .invoke_handler(tauri::generate_handler![status, overlay_show, overlay_hide, overlay_lock, overlay_locked, overlay_drag, overlay_areas, show_main, open_npcap, arranging, update_now, update_download, update_restart, hotkey_label, overlay_layout, overlay_move, send_log])
+        .invoke_handler(tauri::generate_handler![status, overlay_show, overlay_hide, overlay_lock, overlay_locked, overlay_drag, overlay_areas, show_main, open_npcap, arranging, update_now, update_download, update_restart, hotkey_label, overlay_layout, overlay_move, send_log, meter_detail])
         .setup(move |app| {
             let handle = app.handle().clone();
             for label in OVER_GAME {

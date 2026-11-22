@@ -84,6 +84,7 @@
     const top1 = Math.max(...rows.map((r) => r.total)) || 1;
     for (const r of rows.slice(0, opts.max || 12)) {
       const row = el("div", `mRow${r.me ? " me" : ""}`);
+      row.dataset.id = String(r.id);
       const color = COLORS[r.class] || "#8892a6";
       row.style.setProperty("--c", color);
       // The bar glides from where it was to where it is now (4 updates a second).
@@ -98,7 +99,7 @@
       if (r.deaths > 0) name.append(el("span", "dead", `☠${r.deaths}`));
       const now = el("span", `mNow${r.now > r.dps * 1.05 ? " up" : ""}`, short(r.now));
       row.append(icon(r.class), name, el("span", "mDps", short(r.dps)), now, el("span", "mSum", short(r.total)));
-      row.title = `${r.name}: ${Math.round(r.share)}% do dano do grupo`;
+      row.title = `${r.name}: ${Math.round(r.share)}% do dano do grupo. Clique para ver o detalhe.`;
       box.append(row);
     }
     // Opened with the game already running, the names come with the next

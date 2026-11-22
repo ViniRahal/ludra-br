@@ -64,7 +64,23 @@
   });
   T && T.event.listen("meter", (e) => {
     view = e.payload;
+    if (tab.__demo) return; // "Testar" is showing its made-up meter
     renderMeter(tab, view, { empty: "Nenhuma luta ainda. Bata no boss e os números aparecem aqui." });
+  });
+  // "Detalhe do jogador": a click on a row opens its panel.
+  const rowOf = (id) => ((view && view.rows) || []).concat((tab.__demo && tab.__demo.rows) || []).find((r) => r.id === id);
+  tab.addEventListener("click", (e) => {
+    const row = e.target.closest(".mRow[data-id]");
+    if (!row) return;
+    const id = Number(row.dataset.id);
+    window.meterDetail?.open(id, rowOf(id) || { id, name: row.querySelector(".n")?.textContent || `#${id}` });
+  });
+  // A click on a row of the meter over the game opens it here.
+  T && T.event.listen("open-detail", (e) => {
+    const id = Number(e.payload && e.payload.id);
+    if (!id) return;
+    document.querySelector('.tab[data-tab="dano"]')?.click();
+    window.meterDetail?.open(id, rowOf(id) || (e.payload && e.payload.row));
   });
   renderMeter(tab, null, { empty: "Nenhuma luta ainda. Bata no boss e os números aparecem aqui." });
   const DEMO_RECAP = {
@@ -86,6 +102,15 @@
       { id: 5, name: "RickSanchez", class: "cleric", dps: 7900, now: 16400, total: 1.3e6, share: 5, deaths: 0, cp: 131800, me: false },
     ], recaps: [DEMO_RECAP] };
     renderMeter(tab, fake);
+    tab.__demo = fake;
+    window.meterDetailDemo = true;
+    // The made-up meter stays a while here, so its players can be clicked.
+    clearTimeout(tab.__demoEnd);
+    tab.__demoEnd = setTimeout(() => {
+      tab.__demo = null;
+      window.meterDetailDemo = false;
+      renderMeter(tab, view, { empty: "Nenhuma luta ainda. Bata no boss e os números aparecem aqui." });
+    }, 30000);
     // "O que te matou": the card you get when you die, a moment later.
     setTimeout(() => window.ludraNewRecap?.(DEMO_RECAP), 2500);
     if (on && T) {
@@ -94,7 +119,6 @@
       look();
       setTimeout(() => {
         T.event.emitTo("meter", "meter", view || { rows: [] });
-        renderMeter(tab, view, { empty: "Nenhuma luta ainda. Bata no boss e os números aparecem aqui." });
         place();
       }, 9000);
     }
