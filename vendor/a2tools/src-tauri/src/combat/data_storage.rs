@@ -2081,6 +2081,9 @@ impl DataStorage {
                     self.damage_generation.fetch_add(1, Ordering::Relaxed);
                 }
             }
+            // Ludra BR: a monster's hit on a player reaches the hook too (the
+            // death recap: what killed them).
+            self.notify_hit(&pdp);
             return;
         }
 

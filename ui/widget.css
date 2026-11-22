@@ -27,6 +27,10 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: transparent;
 .box.preview { color: #fff; outline: 2px dashed rgba(255, 255, 255, 0.6); cursor: grab; }
 .stats { font-size: calc(var(--s) * 0.3); font-weight: 600; color: #fff; min-height: 1em; font-variant-numeric: tabular-nums; }
 .call.me { color: #fff; background: rgba(170, 30, 30, 0.85); border-radius: 10px; animation: mePulse 0.8s ease-in-out 4; }
+.call.dead { color: #fff; background: rgba(120, 16, 16, 0.88); border: 2px solid rgba(255, 90, 80, 0.8); }
+.call.dead .big { font-size: calc(var(--s) * 0.55); }
+.call.dead .sub { color: #ffd2cc; }
+.hits { margin-top: calc(var(--s) * 0.08); font-size: calc(var(--s) * 0.28); font-weight: 600; line-height: 1.3; text-align: left; color: rgba(255, 255, 255, 0.9); font-variant-numeric: tabular-nums; white-space: pre; }
 @keyframes mePulse { 50% { transform: scale(1.06); } }
 
 body.hover .box { outline: 1px dashed rgba(255, 255, 255, 0.7); outline-offset: 2px; cursor: grab; }

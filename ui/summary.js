@@ -6,6 +6,9 @@
   const K = window.meterKit;
   if (!K) return;
   const { COLORS, short, clock, icon, el } = K;
+  const R = window.LudraRecap;
+  // "12:31 Fulano — Raio em linha (85 mil, 2,1 s)", or the old "(mecânica)".
+  const deathText = (x) => (R ? R.summary(x) : `${clock(x.t)} ${x.name}${x.mech ? ` (${x.mech})` : ""}`);
   const T = window.__TAURI__;
   const STORE = "ludra:fights";
   const KEEP = 15;
@@ -43,7 +46,7 @@
     const mechs = (window.ludraLog?.() || [])
       .filter((e) => e.boss === f.key && e.at >= f.pullAt - 2000 && e.what && !/^(skill|efeito) /.test(String(e.what.title || "")))
       .map((e) => ({ t: e.at - f.pullAt, title: `${e.what.title}${e.what.n > 1 ? ` ${e.what.n}` : ""}`, pct: e.pct }));
-    const deaths = (window.ludraDeaths || []).filter((d) => d.pull === f.pullAt).map((d) => ({ t: d.at - f.pullAt, name: d.name, mech: d.mech }));
+    const deaths = (window.ludraDeaths || []).filter((d) => d.pull === f.pullAt).map((d) => ({ t: d.at - f.pullAt, name: d.name, mech: d.mech, kill: d.kill || null }));
     if (!rows.length && !mechs.length) return; // nothing seen of it
     fights.unshift({ id: f.pullAt, key: f.key, name: f.name, diff: f.diff || null, at: Date.now(), dur, won, low: Math.round(f.low * 10) / 10, rows, mechs, deaths });
     fights = fights.slice(0, KEEP);
@@ -98,8 +101,8 @@
     });
     if (f.deaths && f.deaths.length) {
       const d = el("div", "fDeaths");
-      d.append(el("b", "", `☠ Mortes (${f.deaths.length}): `));
-      d.append(document.createTextNode(f.deaths.map((x) => `${clock(x.t)} ${x.name}${x.mech ? ` (${x.mech})` : ""}`).join(" · ")));
+      d.append(el("b", "", `☠ Mortes (${f.deaths.length})`));
+      for (const x of f.deaths) d.append(el("div", "fDeath", deathText(x)));
       c.append(d);
     }
     if (f.mechs.length) {
@@ -132,7 +135,8 @@
   function draw(f) {
     const W = 620, RH = 30, PAD = 18;
     const mechLines = Math.ceil(Math.min(f.mechs.length, 30) / 3);
-    const H = PAD + 52 + f.rows.length * RH + (mechLines ? 14 + mechLines * 20 : 0) + PAD;
+    const deathLines = Math.min((f.deaths || []).length, 10);
+    const H = PAD + 52 + f.rows.length * RH + (deathLines ? 14 + 20 + deathLines * 19 : 0) + (mechLines ? 14 + mechLines * 20 : 0) + PAD;
     const cv = document.createElement("canvas");
     const S = 2;
     cv.width = W * S;
@@ -180,6 +184,17 @@
       g.textAlign = "left";
       y += RH;
     });
+    if (deathLines) {
+      y += 14;
+      g.font = "700 13px Segoe UI, sans-serif";
+      g.fillStyle = "#ff8a80";
+      g.fillText(`☠ Mortes (${f.deaths.length})`, PAD, y + 8);
+      y += 20;
+      g.font = "12px Segoe UI, sans-serif";
+      g.fillStyle = "#e3c9c6";
+      f.deaths.slice(0, deathLines).forEach((x, i) => g.fillText(deathText(x), PAD + 6, y + i * 19 + 8, W - PAD * 2 - 6));
+      y += deathLines * 19;
+    }
     if (mechLines) {
       y += 14;
       g.font = "12px Segoe UI, sans-serif";

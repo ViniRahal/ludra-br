@@ -7,7 +7,7 @@ const DATA = window.LUDRA_BR;
 const DEFAULTS = {
   enabled: true, widget: true, castCalls: true, hpCalls: true, prewarn: "3",
   size: "60", fg: "#ffd84d", bg: "#000000", bgOpacity: 80, showHp: true,
-  speak: true, volume: 100, bellVolume: 50, voiceName: "", rate: "1.15",
+  speak: true, showRecap: true, volume: 100, bellVolume: 50, voiceName: "", rate: "1.15",
   thresholds: {}, maxHp: {}, sizes: {}, off: {}, enrage: {},
 };
 let prefs = { ...DEFAULTS };
@@ -104,7 +104,9 @@ const engineHooks = {
     if (!prefs.enabled) return;
     const at = Date.now();
     const until = c.end ? Math.max(c.end, at) + 1500 : at + (c.kind === "pre" ? 5000 : 8000);
-    shown = [{ kind: c.kind, text: c.text, sub: c.sub, end: c.end || 0, until }, ...shown.filter((x) => x.until > at && x.text !== c.text)].slice(0, 2);
+    const dead = shown.filter((x) => x.kind === "dead" && x.until > at);
+    const rest = shown.filter((x) => x.kind !== "dead" && x.until > at && x.text !== c.text);
+    shown = [...dead, ...[{ kind: c.kind, text: c.text, sub: c.sub, end: c.end || 0, until }, ...rest].slice(0, dead.length ? 1 : 2)];
     if (!c.quiet) say(c.say, c.kind !== "pre");
     send();
   },
@@ -147,8 +149,58 @@ let swap = null;
 const deathsSeen = new Map(); // id -> deaths counted this fight
 let deathFight = 0;
 window.ludraDeaths = [];
+
+// "O que te matou": each recap the meter sends (newest last), once. Yours
+// goes on the big text while you lie dead; everyone's joins their line in
+// the deaths, the Resumo and the Registro.
+const R = window.LudraRecap;
+const recapSeen = new Set();
+const pendingKill = new Map(); // name -> { at, kill }: a recap before the death was counted
+const RECAP_MS = 12000;
+const RECAP_STORE = "ludra:recaps";
+let recapLog = [];
+try {
+  recapLog = JSON.parse(localStorage.getItem(RECAP_STORE)) || [];
+} catch {}
+const killOf = (r) => ({ skill: r.skill || "", skill_id: r.skill_id || 0, killer: r.killer || "", damage: r.damage || 0, window_ms: r.window_ms || 0, taken: r.taken || 0 });
+function newRecap(r) {
+  const at = Date.now();
+  recapLog.push({ at, r });
+  recapLog = recapLog.slice(-200);
+  try {
+    localStorage.setItem(RECAP_STORE, JSON.stringify(recapLog));
+  } catch {}
+  const kill = killOf(r);
+  const d = window.ludraDeaths.slice().reverse().find((x) => x.name === r.name && !x.kill && Math.abs(at - x.at) <= 8000);
+  if (d) {
+    d.kill = kill;
+    // The line already on screen gets the killing blow.
+    const old = shown.find((x) => x.deathOf === d);
+    if (old) {
+      old.text = `☠ ${r.name} morreu — ${R.short(kill)}`;
+      send();
+    }
+  } else pendingKill.set(r.name, { at, kill });
+  if (r.me && prefs.showRecap !== false) {
+    const card = { kind: "dead", text: R.headline(r), sub: R.detail(r), lines: R.lines(r), end: 0, at, until: at + RECAP_MS };
+    shown = [card, ...shown.filter((x) => x.kind !== "dead" && x.until > at)].slice(0, 2);
+    say(R.voice(r), true);
+    send();
+  }
+}
+window.ludraNewRecap = (r) => newRecap({ seq: `t${Date.now()}`, ...r });
+function onRecaps(list) {
+  if (!Array.isArray(list)) return;
+  for (const r of list) {
+    if (!r || recapSeen.has(r.seq)) continue;
+    recapSeen.add(r.seq);
+    newRecap(r);
+  }
+}
+
 window.__TAURI__?.event.listen("meter", (e) => {
   const v = e.payload || {};
+  onRecaps(v.recaps);
   engine.setMe(v.me_id || 0);
   if (v.target_id) engine.follow({ id: v.target_id, boss: !!v.target_boss, code: v.target_code, name: v.target, hp: v.target_hp, max: v.target_pct > 0 ? Math.round(v.target_hp / (v.target_pct / 100)) : 0 });
   const key = live && live.key;
@@ -203,9 +255,17 @@ window.__TAURI__?.event.listen("meter", (e) => {
     }
     const mech = engine.getLog().filter((x) => x.boss === key && at - x.at <= 12000 && x.at >= pull && x.what && !/^(skill|efeito) /.test(x.what.title || "")).at(-1);
     const what = mech ? mech.what.title.replace(/!/g, "") : "";
-    window.ludraDeaths.push({ pull, at, name: r.name, class: r.class, me: !!r.me, mech: what });
+    const pk = pendingKill.get(r.name);
+    const kill = pk && at - pk.at <= 8000 ? pk.kill : null;
+    pendingKill.delete(r.name);
+    const death = { pull, at, name: r.name, class: r.class, me: !!r.me, mech: what, kill };
+    window.ludraDeaths.push(death);
     window.ludraDeaths = window.ludraDeaths.slice(-60);
-    engineHooksCall({ kind: "pre", text: `☠ ${r.name} morreu${what ? ` (${what})` : ""}`, sub: "", say: "", quiet: true });
+    // Yours is on the big card already.
+    if (r.me && kill && prefs.showRecap !== false) continue;
+    engineHooksCall({ kind: "pre", text: kill ? `☠ ${r.name} morreu — ${R.short(kill)}` : `☠ ${r.name} morreu${what ? ` (${what})` : ""}`, sub: "", say: "", quiet: true });
+    const line = shown.find((x) => x.kind === "pre" && x.text.startsWith(`☠ ${r.name} morreu`));
+    if (line) line.deathOf = death;
   }
 });
 
@@ -247,7 +307,8 @@ setInterval(() => {
   engine.tick();
   renderStats();
   const n = shown.length;
-  shown = shown.filter((x) => x.until > Date.now());
+  const pullNow = (live && live.pullAt) || 0;
+  shown = shown.filter((x) => x.until > Date.now() && !(x.kind === "dead" && pullNow > x.at));
   if (shown.length !== n) send();
 }, 500);
 
@@ -428,7 +489,7 @@ function renderLog() {
 
 // ---- Controls ----------------------------------------------------------
 
-const keys = ["enabled", "widget", "castCalls", "hpCalls", "prewarn", "size", "fg", "bg", "bgOpacity", "showHp", "speak", "volume", "bellVolume", "voiceName", "rate"];
+const keys = ["enabled", "widget", "castCalls", "hpCalls", "prewarn", "size", "fg", "bg", "bgOpacity", "showHp", "speak", "showRecap", "volume", "bellVolume", "voiceName", "rate"];
 function showPrefs() {
   for (const k of keys) {
     const el = $(`.${k}`);
@@ -593,9 +654,16 @@ const logLines = (from) =>
     .getLog()
     .filter((e) => e.at > from)
     .map((e) => `${new Date(e.at).toISOString()}\t${BOSS_NAME(e.boss)}\t${e.what?.title || "?"}${e.what?.n > 1 ? ` #${e.what.n}` : ""}\t${e.pct ?? ""}\t${e.since != null ? (e.since / 1000).toFixed(1) + "s" : ""}\t${e.diff || ""}\t${e.code || ""}`);
+// The mechanics' lines and the deaths' ("MORTE"), in time order.
+const allLines = (from) => {
+  const ats = engine.getLog().filter((e) => e.at > from).map((e) => e.at);
+  const mech = logLines(from).map((l, i) => [ats[i], l]);
+  const dead = recapLog.filter((x) => x.at > from).map((x) => [x.at, R.logLine(x.r, x.at)]);
+  return [...mech, ...dead].sort((a, b) => a[0] - b[0]).map((x) => x[1]);
+};
 let sentUpTo = Number(localStorage.getItem("ludra:sentUpTo")) || 0;
 async function sendLog(auto) {
-  const lines = logLines(auto ? sentUpTo : 0);
+  const lines = allLines(auto ? sentUpTo : 0);
   if (!lines.length) {
     if (!auto) $(".learnNote").textContent = "Ainda não há luta no registro. Depois de uma luta no Ludra (Rahu, Ketu ou Ludra), é só enviar.";
     return;
@@ -605,7 +673,7 @@ async function sendLog(auto) {
   $(".learnNote").textContent = "Enviando…";
   try {
     await window.__TAURI__.core.invoke("send_log", { text: lines.join("\n"), note: `${lines.length} linhas${auto ? " (automático)" : ""}` });
-    sentUpTo = Math.max(...engine.getLog().map((e) => e.at), sentUpTo);
+    sentUpTo = Math.max(...engine.getLog().map((e) => e.at), ...recapLog.map((x) => x.at), sentUpTo);
     try {
       localStorage.setItem("ludra:sentUpTo", String(sentUpTo));
     } catch {}

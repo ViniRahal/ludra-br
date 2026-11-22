@@ -43,7 +43,7 @@ function render() {
   const now = Date.now();
   const calls = items.filter((x) => x.until > now);
   const preview = !calls.length && !live && !locked && window.arrange && arrange.on;
-  const key = JSON.stringify([calls.map((x) => [x.kind, x.text, x.sub, !!x.end]), live ? [live.name, live.next?.title] : null, preview]);
+  const key = JSON.stringify([calls.map((x) => [x.kind, x.text, x.sub, !!x.end, x.lines || null]), live ? [live.name, live.next?.title] : null, preview]);
   if (key !== lastKey) {
     lastKey = key;
     const kids = [];
@@ -74,6 +74,17 @@ function render() {
         sub.className = "sub";
         sub.textContent = x.sub;
         box.append(sub);
+      }
+      // "O que te matou": the last hits before the death, one per line.
+      if (Array.isArray(x.lines) && x.lines.length) {
+        const list = document.createElement("div");
+        list.className = "hits";
+        for (const l of x.lines.slice(-5)) {
+          const li = document.createElement("div");
+          li.textContent = l;
+          list.append(li);
+        }
+        box.append(list);
       }
       box.dataset.end = String(x.end || 0);
       kids.push(box);
