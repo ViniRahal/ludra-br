@@ -143,12 +143,13 @@
     const lines = p.log && window.ludraLogLines ? window.ludraLogLines(r.at - 5000) : [];
     if (!r.own) note.textContent = p.dir ? "Salvando o vídeo e levando para a sua pasta…" : "Salvando o vídeo…";
     let res = null;
+    const info = r.own && done?.info ? ` [${done.info}]` : "";
     if (r.own && !done?.video) {
-      res = { own: true, problem: done?.problem || "" };
+      res = { own: true, problem: `${done?.problem || ""}${info}` };
     } else {
       try {
         res = await inv("record_finish", { args: L.finishArgs(p, r.at, until, lines.join("\n"), r.own ? done.video : null) });
-        if (r.own && done.problem) res.problem = [res.problem, done.problem].filter(Boolean).join(" ");
+        if (r.own && done.problem) res.problem = [res.problem, done.problem + info].filter(Boolean).join(" ");
       } catch (e) {
         res = { problem: "Não consegui terminar de salvar o vídeo." };
         console.warn("record_finish", e);

@@ -16,6 +16,8 @@ pub struct Done {
     pub video: Option<String>,
     pub bytes: u64,
     pub problem: Option<String>,
+    /// How it was recorded (screen, sound, frames), shown with a problem.
+    pub info: String,
 }
 
 /// How a recording is made: frames a second, the bitrate, and whether the
@@ -64,6 +66,21 @@ mod win {
         /// The encoder failed: what it said.
         failed: Mutex<Option<String>>,
         sound: bool,
+        frames: std::sync::atomic::AtomicU64,
+        samples: std::sync::atomic::AtomicU64,
+    }
+
+    /// What the encoder is made with, on the capture's own thread (as the
+    /// crate's example does: its Direct3D device and Windows' media classes
+    /// then live on the same thread as the frames).
+    struct Make {
+        path: PathBuf,
+        w: u32,
+        h: u32,
+        fps: u32,
+        bitrate: u32,
+        rate: u32,
+        sound: bool,
     }
 
     struct Rec {
@@ -73,12 +90,16 @@ mod win {
     }
 
     impl GraphicsCaptureApiHandler for Rec {
-        type Flags = (Arc<Shared>, u32);
+        type Flags = (Arc<Shared>, Make);
         type Error = Err;
 
         fn new(ctx: Context<Self::Flags>) -> Result<Self, Self::Error> {
-            let (shared, fps) = ctx.flags;
-            Ok(Self { shared, min_gap: 10_000_000 / fps.max(1) as i64 - 20_000, last_ts: None })
+            let (shared, m) = ctx.flags;
+            let audio = AudioSettingsBuilder::new().sample_rate(m.rate).channel_count(2).bit_per_sample(16).bitrate(160_000).disabled(!m.sound);
+            let video = VideoSettingsBuilder::new(m.w, m.h).sub_type(VideoSettingsSubType::H264).bitrate(m.bitrate).frame_rate(m.fps);
+            let encoder = VideoEncoder::new(video, audio, ContainerSettingsBuilder::default(), &m.path).map_err(|e| format!("Não consegui criar o vídeo: {e}"))?;
+            *shared.encoder.lock() = Some(encoder);
+            Ok(Self { shared, min_gap: 10_000_000 / m.fps.max(1) as i64 - 20_000, last_ts: None })
         }
 
         fn on_frame_arrived(&mut self, frame: &mut Frame, _c: InternalCaptureControl) -> Result<(), Self::Error> {
@@ -96,6 +117,7 @@ mod win {
                 return Ok(());
             }
             drop(enc);
+            self.shared.frames.fetch_add(1, Ordering::Relaxed);
             let mut first = self.shared.first.lock();
             if first.is_none() {
                 *first = Some(Instant::now());
@@ -117,6 +139,8 @@ mod win {
     }
 
     static NOW: Mutex<Option<Running>> = Mutex::new(None);
+    /// The last recording's setup, for the message when something fails.
+    static INFO: Mutex<String> = Mutex::new(String::new());
 
     /// The monitor the game is on (else the main one).
     fn game_monitor() -> Monitor {
@@ -139,11 +163,17 @@ mod win {
         let (w, h) = (monitor.width().map_err(|e| e.to_string())?, monitor.height().map_err(|e| e.to_string())?);
         // The sound's format comes first: the encoder is made for it.
         let sound = if o.sound { audio::Loopback::open().ok() } else { None };
-        let (rate, channels) = sound.as_ref().map(|s| (s.rate, 2)).unwrap_or((48_000, 2));
-        let audio = AudioSettingsBuilder::new().sample_rate(rate).channel_count(channels).bit_per_sample(16).bitrate(160_000).disabled(sound.is_none());
-        let video = VideoSettingsBuilder::new(w & !1, h & !1).sub_type(VideoSettingsSubType::H264).bitrate(o.bitrate).frame_rate(o.fps);
-        let encoder = VideoEncoder::new(video, audio, ContainerSettingsBuilder::default(), path).map_err(|e| format!("Não consegui criar o vídeo: {e}"))?;
-        let shared = Arc::new(Shared { encoder: Mutex::new(Some(encoder)), first: Mutex::new(None), failed: Mutex::new(None), sound: sound.is_some() });
+        let rate = sound.as_ref().map(|s| s.rate).unwrap_or(48_000);
+        let shared = Arc::new(Shared {
+            encoder: Mutex::new(None),
+            first: Mutex::new(None),
+            failed: Mutex::new(None),
+            sound: sound.is_some(),
+            frames: Default::default(),
+            samples: Default::default(),
+        });
+        let make = Make { path: path.to_path_buf(), w: w & !1, h: h & !1, fps: o.fps, bitrate: o.bitrate, rate, sound: sound.is_some() };
+        *INFO.lock() = format!("tela {w}x{h}, {} fps, {}", o.fps, sound.as_ref().map(|s| s.describe()).unwrap_or_else(|| "sem som".into()));
         // No yellow frame around the screen, where Windows lets us say so.
         let border = if GraphicsCaptureApi::is_border_settings_supported().unwrap_or(false) { DrawBorderSettings::WithoutBorder } else { DrawBorderSettings::Default };
         let settings = Settings::new(
@@ -154,9 +184,15 @@ mod win {
             MinimumUpdateIntervalSettings::Default,
             DirtyRegionSettings::Default,
             ColorFormat::Bgra8,
-            (shared.clone(), o.fps),
+            (shared.clone(), make),
         );
-        let control = Rec::start_free_threaded(settings).map_err(|e| format!("O Windows não deixou gravar a tela: {e}"))?;
+        let control = match Rec::start_free_threaded(settings) {
+            Ok(c) => c,
+            Err(e) => {
+                let _ = std::fs::remove_file(path);
+                return Err(format!("Não consegui começar a gravar a tela: {e}"));
+            }
+        };
         let sound_stop = Arc::new(AtomicBool::new(false));
         let handle = sound.map(|s| {
             let (sh, st) = (shared.clone(), sound_stop.clone());
@@ -172,7 +208,8 @@ mod win {
         if let Some(h) = r.sound {
             let _ = h.join();
         }
-        let _ = r.control.stop();
+        // The video is closed while the capture still runs: the last frames
+        // waiting in the encoder point into the capture's buffers.
         let mut out = Done::default();
         let enc = r.shared.encoder.lock().take();
         match enc {
@@ -183,15 +220,21 @@ mod win {
             }
             None => out.problem = Some(format!("A gravação parou no meio: {}", r.shared.failed.lock().clone().unwrap_or_default())),
         }
+        let _ = r.control.stop();
         if let Ok(m) = std::fs::metadata(&r.path) {
             out.bytes = m.len();
             if m.len() > 0 {
                 out.video = Some(r.path.to_string_lossy().into());
+            } else {
+                // An empty file would only fail to open.
+                let _ = std::fs::remove_file(&r.path);
             }
         }
-        if out.video.is_none() && r.shared.first.lock().is_none() {
+        if r.shared.first.lock().is_none() {
             out.problem = Some("Nenhuma imagem chegou da tela. Se o jogo estiver em tela cheia exclusiva, use o modo janela sem borda.".into());
         }
+        let secs = r.shared.samples.load(Ordering::Relaxed) as f64 / 48_000.0;
+        out.info = format!("{}; {} quadros; {:.0} s de som", INFO.lock(), r.shared.frames.load(Ordering::Relaxed), secs);
         out
     }
 
@@ -262,6 +305,16 @@ mod win {
                     _ => Kind::I32,
                 };
                 Self { rate: f.nSamplesPerSec, channels: f.nChannels.max(1) as usize, kind, block: f.nBlockAlign.max(1) as usize }
+            }
+
+            pub fn describe(&self) -> String {
+                let k = match self.kind {
+                    Kind::F32 => "float",
+                    Kind::I16 => "16 bits",
+                    Kind::I24 => "24 bits",
+                    Kind::I32 => "32 bits",
+                };
+                format!("som {} Hz {k} {} canais", self.rate, self.channels)
             }
 
             /// One sample of one channel, as 16 bits.
@@ -342,6 +395,7 @@ mod win {
                             continue;
                         }
                         sent += (buf.len() / 4) as u64;
+                        shared.samples.fetch_add(((buf.len() / 4) as u64 * 48_000) / self.rate.max(1) as u64, Ordering::Relaxed);
                         let mut enc = shared.encoder.lock();
                         match enc.as_mut() {
                             Some(e) if shared.sound => {
