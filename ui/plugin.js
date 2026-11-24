@@ -194,7 +194,7 @@ function newRecap(r) {
     d.kill = kill;
     // The line already on screen gets the killing blow.
     const old = shown.find((x) => x.deathOf === d);
-    if (old) {
+    if (old && (kill.skill || kill.damage > 0)) {
       old.text = `☠ ${shownName(r.name, { me: r.me, cls: r.class, id: r.id })} morreu — ${R.short(kill)}`;
       send();
     }
@@ -276,7 +276,9 @@ window.__TAURI__?.event.listen("meter", (e) => {
     const mech = engine.getLog().filter((x) => x.boss === key && at - x.at <= 12000 && x.at >= pull && x.what && !/^(skill|efeito) /.test(x.what.title || "")).at(-1);
     const what = mech ? mech.what.title.replace(/!/g, "") : "";
     const pk = pendingKill.get(r.name);
-    const kill = pk && at - pk.at <= 8000 ? pk.kill : null;
+    // A recap with no blow (the meter saw no damage) says nothing: the
+    // mechanic is the better guess.
+    const kill = pk && at - pk.at <= 8000 && (pk.kill.skill || pk.kill.damage > 0) ? pk.kill : null;
     pendingKill.delete(r.name);
     const death = { pull, at, name: r.name, class: r.class, me: !!r.me, mech: what, kill };
     window.ludraDeaths.push(death);
@@ -703,7 +705,15 @@ const logLines = (from) =>
 const allLines = (from) => {
   const ats = engine.getLog().filter((e) => e.at > from).map((e) => e.at);
   const mech = logLines(from).map((l, i) => [ats[i], l]);
-  const dead = recapLog.filter((x) => x.at > from).map((x) => [x.at, R.logLine(x.r, x.at)]);
+  // For each death: the mechanic just before it, and how many of the party
+  // died with it (3 or more in 2 s: a mechanic that wiped them).
+  const log = engine.getLog();
+  const ctxOf = (x) => {
+    const m = log.filter((e) => e.at <= x.at + 500 && x.at - e.at <= 12000 && e.what && !/^(skill|efeito) /.test(e.what.title || "")).at(-1);
+    const group = recapLog.filter((y) => Math.abs(y.at - x.at) <= 2000).length;
+    return { mech: m ? String(m.what.title || "").replace(/!/g, "") : "", group };
+  };
+  const dead = recapLog.filter((x) => x.at > from).map((x) => [x.at, R.logLine(x.r, x.at, ctxOf(x))]);
   return [...mech, ...dead].sort((a, b) => a[0] - b[0]).map((x) => x[1]);
 };
 window.ludraLogLines = (from) => allLines(from);

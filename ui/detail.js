@@ -114,7 +114,7 @@
       t.append(h);
       for (const g of taken) {
         const r = el("div", "dRow");
-        r.append(el("span", "dSk", (g.skill || "").trim() || "golpe desconhecido"), el("span", "dFrom", (N ? N.text((g.from || "").trim(), "app", openDemo || null) : (g.from || "").trim()) || "—"), el("span", "", num(g.total)), el("span", "", g.hits > 0 ? String(g.hits) : "—"));
+        r.append(el("span", "dSk", (window.LudraRecap ? window.LudraRecap.skillName(g.skill) : (g.skill || "").trim()) || "golpe desconhecido"), el("span", "dFrom", ((f) => (N ? N.text(f, "app", openDemo || null) : f))(window.LudraRecap ? window.LudraRecap.who(g.from) : (g.from || "").trim()) || "—"), el("span", "", num(g.total)), el("span", "", g.hits > 0 ? String(g.hits) : "—"));
         t.append(r);
       }
       panel.append(t);

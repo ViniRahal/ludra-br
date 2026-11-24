@@ -16,8 +16,18 @@
     const s = Math.max(0, Math.round((Number(ms) || 0) / 1000));
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   };
-  const blow = (r) => (r && String(r.skill || "").trim()) || "golpe desconhecido";
-  const by = (r) => (r && String(r.killer || "").trim() ? ` (${String(r.killer).trim()})` : "");
+  // The game's names, made readable: its plain hit "Ataque" is the boss's
+  // normal attack, and "???" is a monster whose name the game did not send.
+  const skillName = (s) => {
+    s = String(s || "").trim();
+    return s === "Ataque" ? "Ataque normal" : s;
+  };
+  const who = (n) => {
+    n = String(n || "").trim();
+    return /^\?+$/.test(n) ? "monstro sem nome" : n;
+  };
+  const blow = (r) => (r && skillName(r.skill)) || "golpe desconhecido";
+  const by = (r) => (r && who(r.killer) ? ` (${who(r.killer)})` : "");
 
   // The big text when you die: "VOCÊ MORREU — Raio em linha (Ludra)".
   const headline = (r) => `VOCÊ MORREU — ${blow(r)}${by(r)}`;
@@ -32,10 +42,10 @@
   // The last hits, newest last: "-1,2 s  Cone (Ludra)  40 mil".
   const lines = (r, max = 5) =>
     ((r && Array.isArray(r.hits) ? r.hits : []).slice(-max)).map((h) => {
-      const from = String(h.from || "").trim();
-      return `-${secs(h.before_ms)}  ${(String(h.skill || "").trim()) || "golpe desconhecido"}${from ? ` (${from})` : ""}  ${num(h.damage)}`;
+      const from = who(h.from);
+      return `-${secs(h.before_ms)}  ${skillName(h.skill) || "golpe desconhecido"}${from ? ` (${from})` : ""}  ${num(h.damage)}`;
     });
-  const voice = (r) => (r && String(r.skill || "").trim() ? `Você morreu para ${String(r.skill).trim()}` : "Você morreu");
+  const voice = (r) => (r && skillName(r.skill) ? `Você morreu para ${skillName(r.skill)}` : "Você morreu");
   // Someone of the party: "Raio em linha (85 mil)".
   const short = (r) => `${blow(r)}${r && r.damage > 0 ? ` (${num(r.damage)})` : ""}`;
   // The Resumo: "12:31 Fulano — Raio em linha (85 mil, 2,1 s)", and the
@@ -50,18 +60,31 @@
     } else if (d.mech) s += ` (${d.mech})`;
     return s;
   };
-  // One Registro line, tab-separated like the mechanics' lines.
-  const logLine = (r, at) =>
-    [
+  // One Registro line, tab-separated like the mechanics' lines, in words:
+  //   MORTE  Dark (você)  morreu para Raio em linha (Ludra)  golpe 85 mil
+  //   em 2,1 s  levou 85 mil  antes: -1,2 s Cone (Ludra) 1,2 mi | ...  id 1803290
+  // ctx (optional): { mech: the mechanic just before, group: how many of the
+  // party died at the same moment }. With no blow seen (the meter saw no
+  // damage: a mechanic that kills outright, a fall, out of its reach), the
+  // line says so instead of "golpe desconhecido 0".
+  const logLine = (r, at, ctx = {}) => {
+    const mech = String(ctx.mech || "").trim();
+    const seen = !!(skillName(r.skill) || r.damage > 0);
+    let cause = seen ? `morreu para ${blow(r)}${by(r)}` : mech ? `morreu na mecânica ${mech} (sem golpe no medidor)` : "morreu sem golpe no medidor (mecânica, queda ou fora do alcance)";
+    if (ctx.group >= 3) cause += ` · ${ctx.group} morreram juntos${mech ? ` na ${mech}` : ""}`;
+    else if (seen && mech && mech.toLowerCase() !== blow(r).toLowerCase()) cause += ` · durante ${mech}`;
+    return [
       new Date(at).toISOString(),
       "MORTE",
-      `${r.name || "?"}${r.me ? " (você)" : ""}: ${blow(r)}${by(r)}`,
-      r.skill_id || "",
-      r.damage || 0,
-      r.window_ms > 0 ? `${(r.window_ms / 1000).toFixed(1)}s` : "",
-      r.taken || 0,
-      (r.hits || []).map((h) => `-${((h.before_ms || 0) / 1000).toFixed(1)}s ${h.skill || "?"}${h.from ? `/${h.from}` : ""} ${h.damage || 0}`).join(" | "),
+      `${r.name || "?"}${r.me ? " (você)" : ""}`,
+      cause,
+      r.damage > 0 ? `golpe ${num(r.damage)}` : "",
+      r.window_ms > 0 ? `em ${secs(r.window_ms)}` : "",
+      r.taken > 0 ? `levou ${num(r.taken)}` : "",
+      (r.hits || []).length ? `antes: ${(r.hits || []).map((h) => `-${secs(h.before_ms)} ${skillName(h.skill) || "?"}${who(h.from) ? ` (${who(h.from)})` : ""} ${num(h.damage)}`).join(" | ")}` : "",
+      r.skill_id ? `id ${r.skill_id}` : "",
     ].join("\t");
+  };
 
-  root.LudraRecap = { num, secs, clock, blow, headline, detail, lines, voice, short, summary, logLine };
+  root.LudraRecap = { skillName, who, num, secs, clock, blow, headline, detail, lines, voice, short, summary, logLine };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -200,7 +200,9 @@
     const hp = m.pct != null ? `Vida do boss: ${pctText(m.pct)}` : "";
     const at = dur(m.t);
     if (m.kind === "death") {
-      const how = m.skill ? `Golpe que matou: ${m.skill}${m.killer ? ` (${N.text ? N.text(m.killer) : m.killer})` : ""}${m.damage > 0 ? `, ${num(m.damage)}` : ""}` : "Não deu para ver o golpe que matou.";
+      const sk = R && R.skillName ? R.skillName(m.skill) : m.skill;
+      const kl = R && R.who ? R.who(m.killer) : m.killer;
+      const how = sk ? `Golpe que matou: ${sk}${kl ? ` (${N.text ? N.text(kl) : kl})` : ""}${m.damage > 0 ? `, ${num(m.damage)}` : ""}` : "O medidor não viu golpe: provavelmente uma mecânica que mata direto.";
       return { head: `${at} · ☠ ${who(m.name)} morreu`, body: [how, hp].filter(Boolean).join("\n") };
     }
     if (m.kind === "revive") return { head: `${at} · ✚ ${who(m.title)} voltou`, body: hp };

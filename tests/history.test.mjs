@@ -112,7 +112,7 @@ assert.equal(JSON.stringify(H.shownKinds({ ...H.OPTS_DEFAULTS, showDeaths: false
 const dt = H.markText(ms[2]);
 assert.equal(dt.head, "0:12 · ☠ B morreu");
 assert.equal(dt.body, "Golpe que matou: Raio (Ludra), 85 mil\nVida do boss: 80%");
-assert.match(H.markText(ms[3]).body, /Não deu para ver/);
+assert.match(H.markText(ms[3]).body, /O medidor não viu golpe/);
 assert.equal(H.markText(ms[5]).head, "0:25 · 🎯 Bingo");
 assert.equal(H.markText(ms[4]).head, "0:20 · ✚ B voltou");
 // "Esconder nomes": the names drawn hidden, the fight keeps the real ones.

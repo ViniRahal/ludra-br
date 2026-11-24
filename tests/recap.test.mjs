@@ -23,5 +23,11 @@ assert.equal(R.summary({ t: 751000, name: "Fulano", mech: "RAIO EM LINHA", kill:
 assert.equal(R.summary({ t: 5000, name: "Fulano", mech: "ORBES", kill: null }), "0:05 Fulano (ORBES)");
 const line = R.logLine(r, Date.UTC(2026, 10, 22, 14, 0, 0));
 assert.equal(line.split("\t")[1], "MORTE");
-assert.match(line, /Dark \(você\): Raio em linha \(Ludra\)\t1803290\t85000\t2\.1s/);
+assert.match(line, /\tDark \(você\)\tmorreu para Raio em linha \(Ludra\)\tgolpe 85 mil\tem 2,1 s\tlevou 85 mil\tantes: -1,2 s Cone \(Ludra\) 1,2 mi \| -0,0 s \? 850\tid 1803290$/);
+const none = R.logLine({ name: "meequi", skill: "", damage: 0, hits: [] }, 0, { mech: "BINGO 2" });
+assert.match(none, /\tmeequi\tmorreu na mecânica BINGO 2 \(sem golpe no medidor\)\t/);
+assert.match(R.logLine({ name: "x", skill: "", damage: 0 }, 0), /morreu sem golpe no medidor/);
+const group = R.logLine({ name: "Chalps", skill: "Ataque", killer: "Ludra da Eternidade", damage: 39690, hits: [{ before_ms: 21000, from: "???", skill: "Ataque", damage: 19226 }] }, 0, { group: 6, mech: "BINGO 1" });
+assert.match(group, /morreu para Ataque normal \(Ludra da Eternidade\) · 6 morreram juntos na BINGO 1/);
+assert.match(group, /antes: -21,0 s Ataque normal \(monstro sem nome\) 19 mil/);
 console.log("ok recap");
