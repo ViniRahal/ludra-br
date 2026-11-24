@@ -9,6 +9,7 @@
 use ludra_core::{capture, flows, hotkeys};
 
 mod record;
+mod screenrec;
 
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
@@ -598,6 +599,30 @@ async fn record_toggle(start_at: Option<u64>) -> bool {
     tauri::async_runtime::spawn_blocking(record::toggle).await.unwrap_or(false)
 }
 
+/// The program's own recorder (screenrec.rs): starts into a new .mp4 in the
+/// chosen folder (today's, with one per day). Ok(path) or the reason.
+#[tauri::command]
+async fn rec_start(dir: Option<String>, day: Option<String>, name: String, fps: Option<u32>, bitrate: Option<u32>, sound: Option<bool>) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let base = dir.filter(|d| !d.trim().is_empty()).map(|d| std::path::PathBuf::from(d.trim())).or_else(record::captures_dir).ok_or("Pasta de vídeos não encontrada.")?;
+        let target = ludra_core::recfiles::target_dir(&base, day.as_deref().unwrap_or(""));
+        std::fs::create_dir_all(&target).map_err(|e| format!("Não consegui usar a pasta {}: {e}", target.display()))?;
+        let name = ludra_core::recfiles::safe_part(&name);
+        let path = ludra_core::recfiles::unique_path(&target, if name.is_empty() { "Ludra BR.mp4" } else { &name }, |p| p.exists());
+        let o = screenrec::Opts { fps: fps.unwrap_or(60).clamp(15, 60), bitrate: bitrate.unwrap_or(12_000_000).clamp(2_000_000, 50_000_000), sound: sound.unwrap_or(true) };
+        screenrec::start(&path, o)?;
+        Ok(path.to_string_lossy().into_owned())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Stops the program's recorder and closes the video.
+#[tauri::command]
+async fn rec_stop() -> screenrec::Done {
+    tauri::async_runtime::spawn_blocking(screenrec::stop).await.unwrap_or_default()
+}
+
 #[tauri::command]
 fn record_last() -> Option<record::Last> {
     record::last_video()
@@ -1112,7 +1137,7 @@ fn main() {
     let state = Arc::new(App { status: Mutex::new(Status { capture: "starting".into(), ..Default::default() }), locked: Mutex::new(false), areas: Mutex::new(HashMap::new()), focused: Mutex::new(HashSet::new()), hotkey: Mutex::new(String::new()), keys: Mutex::new(Keys::default()), wanted: Mutex::new(HashSet::new()), hidden: Mutex::new(None), detail_tx: Mutex::new(None), hist: Mutex::new(HistOpts::default()) });
     tauri::Builder::default()
         .manage(state.clone())
-        .invoke_handler(tauri::generate_handler![status, overlay_show, overlay_hide, overlay_lock, overlay_locked, overlay_drag, overlay_areas, show_main, open_npcap, arranging, update_now, update_download, update_restart, hotkey_label, hotkeys_get, hotkeys_set, hotkeys_pause, overlays_toggle, overlay_layout, overlay_move, overlay_reset_positions, send_log, meter_detail, history_list, history_get, history_delete, history_bests, history_options, history_marks, record_toggle, record_last, record_game_front, record_finish, record_default_dir, record_pick_folder, record_open_folder])
+        .invoke_handler(tauri::generate_handler![status, overlay_show, overlay_hide, overlay_lock, overlay_locked, overlay_drag, overlay_areas, show_main, open_npcap, arranging, update_now, update_download, update_restart, hotkey_label, hotkeys_get, hotkeys_set, hotkeys_pause, overlays_toggle, overlay_layout, overlay_move, overlay_reset_positions, send_log, meter_detail, history_list, history_get, history_delete, history_bests, history_options, history_marks, record_toggle, rec_start, rec_stop, record_last, record_game_front, record_finish, record_default_dir, record_pick_folder, record_open_folder])
         .setup(move |app| {
             let handle = app.handle().clone();
             for label in OVER_GAME {

@@ -82,6 +82,10 @@
           <button type="button" class="btn primary recBtn">Gravar agora</button>
           <button type="button" class="btn recFolder">Abrir pasta</button>
         </div>
+        <label class="switch"><span>Como gravar</span><select class="recHow"><option value="app">Gravador do Ludra BR (recomendado)</option><option value="gamebar">Xbox Game Bar do Windows</option></select></label>
+        <label class="switch"><span>Qualidade</span><select class="recQuality"><option value="alta">Alta (arquivo maior)</option><option value="media">Média</option><option value="leve">Leve (arquivo menor)</option></select></label>
+        <label class="switch"><span>Quadros por segundo</span><select class="recFps"><option value="60">60</option><option value="30">30 (arquivo menor)</option></select></label>
+        <label class="switch"><span>Gravar o som do PC</span><input type="checkbox" class="recSound" /></label>
         <label class="switch"><span>Gravar sozinho cada pull</span><input type="checkbox" class="recAuto" /></label>
         <label class="switch" hidden><span>Quais bosses</span><select class="recBosses"><option value="ludra">Só o Ludra</option><option value="trio">Rahu, Ketu e Ludra</option><option value="all">Todos os bosses (Reator também)</option></select></label>
         <label class="row" hidden><span>Continuar gravando depois da luta</span><input type="range" class="recTail" min="3" max="30" step="1" data-unit=" s" /></label>
@@ -93,7 +97,7 @@
           <button type="button" class="btn recPick">Mudar pasta</button>
           <button type="button" class="btn recReset" hidden>Voltar ao padrão</button>
         </div>
-        <p class="note recNote">Usa o gravador do Windows (Xbox Game Bar, Win+Alt+R). Se escolher outra pasta, o vídeo é levado para lá no fim da gravação e some da Galeria do Game Bar.</p>
+        <p class="note recNote">Xbox Game Bar: usa o atalho do Windows (Win+Alt+R) e salva em Vídeos\Captures; se escolher outra pasta, o vídeo é levado para lá no fim.</p>
       </div>
     </section>
 

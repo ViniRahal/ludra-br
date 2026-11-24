@@ -8,7 +8,13 @@
     log: true, // the fight's log saved next to the video
     day: false, // one folder per day inside the chosen one
     dir: "", // the chosen folder; empty: Game Bar's own (Videos\Captures)
+    how: "app", // "app": the program's own recorder; "gamebar": Windows' Xbox Game Bar
+    quality: "media", // see QUALITY
+    fps: 60, // 30 or 60
+    sound: true, // the PC's sound in the video (the program's recorder)
   };
+  // Bitrate of the video (bits a second), by the quality chosen.
+  const QUALITY = { alta: 20_000_000, media: 12_000_000, leve: 6_000_000 };
   const BOSSES = {
     ludra: ["ludra"],
     trio: ["ludra", "rahu", "ketu"],
@@ -26,6 +32,10 @@
     const t = Math.round(Number(p.tail));
     p.tail = Number.isFinite(t) ? Math.min(TAIL_MAX, Math.max(TAIL_MIN, t)) : DEFAULTS.tail;
     p.dir = typeof p.dir === "string" ? p.dir.trim() : "";
+    if (p.how !== "gamebar") p.how = "app";
+    if (!QUALITY[p.quality]) p.quality = DEFAULTS.quality;
+    p.fps = Number(p.fps) === 30 ? 30 : 60;
+    p.sound = p.sound !== false;
     return p;
   }
 
@@ -44,9 +54,15 @@
     return `${dayName(t)} ${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
   };
 
+  // The program's recorder: the start call's arguments.
+  function startArgs(p, at) {
+    return { dir: p.dir || null, day: p.day ? dayName(at) : null, name: `Ludra BR ${stamp(at)}.mp4`, fps: p.fps, bitrate: QUALITY[p.quality], sound: p.sound };
+  }
+
   // The finish call's arguments, from the options at the time it stops.
-  function finishArgs(p, since, until, logText) {
+  function finishArgs(p, since, until, logText, video) {
     return {
+      video: video || null,
       since, until,
       dir: p.dir,
       day: p.day ? dayName(since) : "",
@@ -81,7 +97,9 @@
         problem,
       };
     }
-    const miss = "Não achei o vídeo novo em Vídeos\\Captures. Veja se a Xbox Game Bar está ligada (Configurações do Windows > Jogos) ou se você mudou a pasta Capturas do Windows.";
+    const miss = res?.own
+      ? "O vídeo não foi gravado."
+      : "Não achei o vídeo novo em Vídeos\\Captures. A Xbox Game Bar não gravou (em alguns PCs o atalho dela não chega ao jogo). Use \"Gravador do Ludra BR\" em \"Como gravar\".";
     const logWhere = res?.log ? ` O registro da luta foi salvo em ${folderOf(res.log)}.` : "";
     return {
       line: `${miss}${logWhere}${problem ? ` ${problem}` : ""}`,
@@ -90,5 +108,5 @@
     };
   }
 
-  window.LudraRecLogic = { DEFAULTS, BOSSES, TAIL_MIN, TAIL_MAX, clean, isFight, dayName, stamp, finishArgs, shownDir, describe, fileOf, folderOf };
+  window.LudraRecLogic = { QUALITY, startArgs, DEFAULTS, BOSSES, TAIL_MIN, TAIL_MAX, clean, isFight, dayName, stamp, finishArgs, shownDir, describe, fileOf, folderOf };
 })();

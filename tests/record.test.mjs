@@ -38,8 +38,13 @@ assert.equal(L.dayName(t), "2026-11-22");
 assert.equal(L.stamp(t), "2026-11-22 15-08-09");
 const p = L.clean({ dir: "D:\\Zezinho", day: true, log: true });
 const a = L.finishArgs(p, t, t + 60000, "linha");
-assert.deepEqual(plain(a), { since: t, until: t + 60000, dir: "D:\\Zezinho", day: "2026-11-22", log: "linha", logName: "Ludra BR registro 2026-11-22 15-08-09.txt" });
+assert.deepEqual(plain(a), { video: null, since: t, until: t + 60000, dir: "D:\\Zezinho", day: "2026-11-22", log: "linha", logName: "Ludra BR registro 2026-11-22 15-08-09.txt" });
 assert.equal(L.finishArgs(L.clean({ log: false }), t, t, "linha").log, null, "log off");
+assert.equal(L.finishArgs(p, t, t, "x", "D:\\Zezinho\\a.mp4").video, "D:\\Zezinho\\a.mp4", "own recorder's video");
+assert.equal(L.clean({}).how, "app", "the program's recorder by default");
+assert.equal(L.clean({ how: "x", fps: 45, quality: "?" }).fps, 60);
+const sa = L.startArgs(L.clean({ dir: "D:\\V", day: true, fps: 30, quality: "leve", sound: false }), t);
+assert.deepEqual(plain(sa), { dir: "D:\\V", day: "2026-11-22", name: "Ludra BR 2026-11-22 15-08-09.mp4", fps: 30, bitrate: 6000000, sound: false });
 assert.equal(L.finishArgs(L.clean({}), t, t, "").log, null, "nothing to save");
 assert.equal(L.finishArgs(L.clean({}), t, t, "x").day, "", "no day folder");
 // "Onde salvar" shows where the video really lands.

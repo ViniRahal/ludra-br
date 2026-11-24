@@ -8,8 +8,9 @@
   const L = window.LudraRecLogic;
   const inv = (c, a) => window.__TAURI__?.core.invoke(c, a) ?? Promise.reject("sem Tauri");
   const btn = $(".recBtn"), note = $(".recNote");
-  const ui = { auto: $(".recAuto"), bosses: $(".recBosses"), tail: $(".recTail"), log: $(".recLog"), day: $(".recDay") };
+  const ui = { auto: $(".recAuto"), bosses: $(".recBosses"), tail: $(".recTail"), log: $(".recLog"), day: $(".recDay"), how: $(".recHow"), quality: $(".recQuality"), fps: $(".recFps"), sound: $(".recSound") };
   const HELP = note.textContent;
+  const HELP_APP = "Grava a tela onde está o jogo (com os avisos por cima) e o som do PC, direto na pasta escolhida.";
   const STORE = "ludra:rec";
   let rec = null; // { at, auto }
   let stopTimer = 0;
@@ -37,6 +38,13 @@
     ui.tail.dispatchEvent(new Event("input"));
     ui.log.checked = p.log;
     ui.day.checked = p.day;
+    ui.how.value = p.how;
+    ui.quality.value = p.quality;
+    ui.fps.value = String(p.fps);
+    ui.sound.checked = p.sound;
+    // Quality, frames and sound are the program's recorder's; Game Bar has its own (Windows settings).
+    for (const k of ["quality", "fps", "sound"]) ui[k].closest(".switch").hidden = p.how !== "app";
+    note.dataset.help = p.how === "app" ? HELP_APP : HELP;
     // The boss list and the seconds only matter when it records by itself.
     ui.bosses.closest(".switch").hidden = !p.auto;
     ui.tail.closest(".row").hidden = !p.auto;
@@ -54,6 +62,10 @@
   ui.tail.addEventListener("change", () => set("tail", Number(ui.tail.value)));
   ui.log.addEventListener("change", () => set("log", ui.log.checked));
   ui.day.addEventListener("change", () => set("day", ui.day.checked));
+  ui.how.addEventListener("change", () => set("how", ui.how.value));
+  ui.quality.addEventListener("change", () => set("quality", ui.quality.value));
+  ui.fps.addEventListener("change", () => set("fps", Number(ui.fps.value)));
+  ui.sound.addEventListener("change", () => set("sound", ui.sound.checked));
 
   $(".recPick").addEventListener("click", async () => {
     let dir = null;
@@ -91,9 +103,22 @@
     if (rec) return;
     clearTimeout(stopTimer);
     stopTimer = 0;
-    rec = { at: Date.now(), auto: isAuto };
+    rec = { at: Date.now(), auto: isAuto, own: p.how === "app" };
     show();
     const r = rec;
+    if (r.own) {
+      try {
+        r.path = await inv("rec_start", L.startArgs(p, r.at));
+        r.found = true;
+      } catch (e) {
+        if (rec === r) rec = null;
+        show();
+        note.textContent = `Não consegui começar a gravar: ${e}`;
+        return;
+      }
+      if (rec === r) note.textContent = recordingLine();
+      return;
+    }
     // The start time goes along: a finish still waiting for the previous
     // video then knows a file made from now on is not that one.
     try { r.found = await inv("record_toggle", { startAt: r.at }); } catch {}
@@ -107,16 +132,27 @@
     const r = rec;
     rec = null;
     show();
-    try { await inv("record_toggle"); } catch {}
+    let done = null;
+    if (r.own) {
+      note.textContent = "Salvando o vídeo…";
+      try { done = await inv("rec_stop"); } catch (e) { done = { problem: String(e) }; }
+    } else {
+      try { await inv("record_toggle"); } catch {}
+    }
     const until = Date.now();
     const lines = p.log && window.ludraLogLines ? window.ludraLogLines(r.at - 5000) : [];
-    note.textContent = p.dir ? "Salvando o vídeo e levando para a sua pasta…" : "Salvando o vídeo…";
+    if (!r.own) note.textContent = p.dir ? "Salvando o vídeo e levando para a sua pasta…" : "Salvando o vídeo…";
     let res = null;
-    try {
-      res = await inv("record_finish", { args: L.finishArgs(p, r.at, until, lines.join("\n")) });
-    } catch (e) {
-      res = { problem: "Não consegui terminar de salvar o vídeo." };
-      console.warn("record_finish", e);
+    if (r.own && !done?.video) {
+      res = { own: true, problem: done?.problem || "" };
+    } else {
+      try {
+        res = await inv("record_finish", { args: L.finishArgs(p, r.at, until, lines.join("\n"), r.own ? done.video : null) });
+        if (r.own && done.problem) res.problem = [res.problem, done.problem].filter(Boolean).join(" ");
+      } catch (e) {
+        res = { problem: "Não consegui terminar de salvar o vídeo." };
+        console.warn("record_finish", e);
+      }
     }
     last = L.describe(res);
     try { localStorage.setItem(LAST, JSON.stringify(last)); } catch {}
@@ -159,5 +195,5 @@
   inv("record_default_dir").then((d) => { defaultDir = d || ""; showOptions(); }).catch(() => {});
   showOptions();
   show();
-  note.textContent = HELP;
+  note.textContent = note.dataset.help || HELP;
 })();

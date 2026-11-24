@@ -81,6 +81,10 @@ pub struct FinishArgs {
     /// The log's name when no video was found to name it after.
     #[serde(default)]
     pub log_name: String,
+    /// The video the program's own recorder already wrote where it belongs:
+    /// nothing to wait for or move, only the log to put next to it.
+    #[serde(default)]
+    pub video: Option<String>,
 }
 
 #[derive(Serialize, Default)]
@@ -116,6 +120,20 @@ fn why(e: &std::io::Error) -> String {
 /// few minutes: run it off the main thread.
 pub fn finish(a: FinishArgs) -> Finish {
     let mut out = Finish::default();
+    if let Some(v) = a.video.as_deref().filter(|v| !v.is_empty()) {
+        let video = Path::new(v);
+        out.video = Some(v.to_string());
+        out.bytes = std::fs::metadata(video).map(|m| m.len()).unwrap_or(0);
+        if let (Some(text), Some(dir)) = (a.log.as_deref().filter(|t| !t.is_empty()), video.parent()) {
+            let name = recfiles::log_name_for(&video.file_name().unwrap_or_default().to_string_lossy());
+            let to = recfiles::unique_path(dir, &name, |p| p.exists());
+            match std::fs::write(&to, text) {
+                Ok(()) => out.log = Some(to.to_string_lossy().into()),
+                Err(e) => out.problem = Some(format!("Não consegui salvar o registro da luta{}.", why(&e))),
+            }
+        }
+        return out;
+    }
     let Some(captures) = captures_dir() else {
         out.problem = Some("Pasta de vídeos do Windows não encontrada.".into());
         return out;
@@ -261,6 +279,12 @@ fn move_file(from: &Path, to: &Path) -> std::io::Result<()> {
     // Copied: if the original cannot go, both stay, the video is safe.
     let _ = std::fs::remove_file(from);
     Ok(())
+}
+
+/// The game's window (its handle), for the recorder to find its screen.
+#[cfg(windows)]
+pub fn game_hwnd() -> Option<isize> {
+    win::game_window().map(|h| h as isize)
 }
 
 /// Opens a folder in Explorer, made first if it is not there yet.

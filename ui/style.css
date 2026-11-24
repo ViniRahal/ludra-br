@@ -246,3 +246,4 @@ details.more .switch span { min-width: 0; }
 .obox.picked { box-shadow: 0 0 0 2px #fff, 0 0 12px var(--c); z-index: 3; }
 .oLeg { cursor: pointer; }
 .oLeg.picked { background: color-mix(in srgb, var(--c) 22%, transparent); outline: 1px solid var(--c); }
+.switch[hidden], .row[hidden] { display: none; }
